@@ -24,13 +24,13 @@ export async function processReceiptImage(imageBase64: string): Promise<OCRResul
       throw new Error('Gemini API Key tanımlanmamış');
     }
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const prompt = `
-Bu fatura/fiş görselini analiz et ve aşağıdaki JSON formatında döndür.
+Bu fatura/fiş görselini analiz et ve aşağıdaki JSON formatında dö ndür.
 Eğer bir alan okunamazsa veya yoksa, varsayılan değerleri kullan.
 
-Hocam ürün fiyatları yaparken fişin alt kısmında Ürün İndirimleri var onları da dikkate kat!
+
 
 {
   "market_adi": "Market adı (yoksa 'Bilinmeyen Market')",

@@ -101,12 +101,20 @@ const Layout: React.FC<LayoutProps> = ({ children, title = 'Bill Split' }) => {
 
             {/* Mobile User & Logout - Visible on Mobile */}
             <div className="flex md:hidden items-center space-x-3">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-black text-sm shadow-lg ${
-                user?.role === 'admin' 
-                  ? 'bg-linear-to-br from-purple-600 to-pink-600' 
-                  : 'bg-linear-to-br from-blue-600 to-cyan-600'
-              }`}>
-                {user?.name?.charAt(0).toUpperCase()}
+              <div className="flex items-center gap-2 bg-white/70 backdrop-blur-sm rounded-2xl px-3 py-2 shadow-md">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-black text-xs shadow-lg ${
+                  user?.role === 'admin' 
+                    ? 'bg-linear-to-br from-purple-600 to-pink-600' 
+                    : 'bg-linear-to-br from-blue-600 to-cyan-600'
+                }`}>
+                  {user?.name?.charAt(0).toUpperCase()}
+                </div>
+                <div className="text-left">
+                  <p className="text-xs font-bold text-gray-800 leading-tight">{user?.name}</p>
+                  <p className="text-xs text-gray-500 font-medium leading-tight">
+                    {user?.role === 'admin' ? '👑' : '👤'}
+                  </p>
+                </div>
               </div>
               <Button 
                 variant="danger" 
