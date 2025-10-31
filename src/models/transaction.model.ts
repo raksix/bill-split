@@ -6,6 +6,8 @@ export interface ITransaction extends Document {
   toUser: mongoose.Types.ObjectId;
   amount: number;
   isPaid: boolean;
+  paidAt?: Date;
+  type?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -34,6 +36,13 @@ const TransactionSchema: Schema<ITransaction> = new Schema(
     isPaid: {
       type: Boolean,
       default: false,
+    },
+    paidAt: {
+      type: Date,
+    },
+    type: {
+      type: String,
+      default: 'debt',
     },
   },
   {
