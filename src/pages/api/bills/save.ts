@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import mongoose from 'mongoose';
 import connectDB from '@/lib/db';
 import Bill from '@/models/bill.model';
 import Transaction from '@/models/transaction.model';
@@ -51,8 +52,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .filter((participantId: string) => participantId !== currentUser.userId)
         .map((participantId: string) => ({
           billId: bill._id,
-          fromUser: participantId,
-          toUser: currentUser.userId,
+          fromUser: new mongoose.Types.ObjectId(participantId),
+          toUser: new mongoose.Types.ObjectId(currentUser.userId),
           amount: perPersonAmount,
           isPaid: false,
         }));

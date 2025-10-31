@@ -57,7 +57,7 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
     await connectDB();
 
     const { id } = req.query;
-    const { market_adi, tarih, toplam_tutar } = req.body;
+    const { market_adi, tarih, toplam_tutar, urunler, participants } = req.body;
 
     if (!id || typeof id !== 'string') {
       return res.status(400).json({ message: 'Geçersiz fatura ID' });
@@ -78,6 +78,8 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
     if (market_adi) updateData.market_adi = market_adi;
     if (tarih) updateData.tarih = tarih;
     if (toplam_tutar) updateData.toplam_tutar = parseFloat(toplam_tutar);
+    if (urunler) updateData.urunler = urunler;
+    if (participants) updateData.participants = participants;
 
     const updatedBill = await Bill.findByIdAndUpdate(
       id,

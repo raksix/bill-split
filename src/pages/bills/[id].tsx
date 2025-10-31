@@ -42,16 +42,36 @@ const BillDetailPage: React.FC = () => {
   const [editForm, setEditForm] = useState({
     market_adi: '',
     tarih: '',
-    toplam_tutar: 0
+    toplam_tutar: 0,
+    urunler: [] as Array<{
+      urun_adi: string;
+      fiyat: number;
+      isPersonal?: boolean;
+    }>,
+    participants: [] as string[]
   });
+  const [allUsers, setAllUsers] = useState<Array<{_id: string; name: string; username: string}>>([]);
 
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login');
     } else if (id) {
       fetchBill();
+      fetchUsers();
     }
   }, [user, authLoading, id]);
+
+  const fetchUsers = async () => {
+    try {
+      const response = await fetch('/api/users/list');
+      if (response.ok) {
+        const data = await response.json();
+        setAllUsers(data.users || []);
+      }
+    } catch (error) {
+      console.error('Kullanıcılar yüklenirken hata:', error);
+    }
+  };
 
   const fetchBill = async () => {
     try {
@@ -62,7 +82,9 @@ const BillDetailPage: React.FC = () => {
         setEditForm({
           market_adi: data.bill.market_adi,
           tarih: data.bill.tarih,
-          toplam_tutar: data.bill.toplam_tutar
+          toplam_tutar: data.bill.toplam_tutar,
+          urunler: data.bill.urunler,
+          participants: data.bill.participants.map((p: any) => p._id)
         });
       } else {
         toast.error('Fatura bulunamadı');
@@ -80,12 +102,18 @@ const BillDetailPage: React.FC = () => {
     if (!bill) return;
 
     try {
+      // Calculate new total based on products
+      const newTotal = editForm.urunler.reduce((sum, item) => sum + item.fiyat, 0);
+      
       const response = await fetch(`/api/bills/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(editForm),
+        body: JSON.stringify({
+          ...editForm,
+          toplam_tutar: newTotal
+        }),
       });
 
       if (response.ok) {
@@ -99,6 +127,42 @@ const BillDetailPage: React.FC = () => {
     } catch (error) {
       toast.error('Bağlantı hatası');
     }
+  };
+
+  const addProduct = () => {
+    setEditForm({
+      ...editForm,
+      urunler: [...editForm.urunler, { urun_adi: '', fiyat: 0, isPersonal: false }]
+    });
+  };
+
+  const removeProduct = (index: number) => {
+    const newProducts = editForm.urunler.filter((_, i) => i !== index);
+    setEditForm({
+      ...editForm,
+      urunler: newProducts
+    });
+  };
+
+  const updateProduct = (index: number, field: string, value: any) => {
+    const newProducts = [...editForm.urunler];
+    newProducts[index] = { ...newProducts[index], [field]: value };
+    setEditForm({
+      ...editForm,
+      urunler: newProducts
+    });
+  };
+
+  const toggleParticipant = (userId: string) => {
+    const isSelected = editForm.participants.includes(userId);
+    const newParticipants = isSelected 
+      ? editForm.participants.filter(id => id !== userId)
+      : [...editForm.participants, userId];
+    
+    setEditForm({
+      ...editForm,
+      participants: newParticipants
+    });
   };
 
   const handleDelete = async () => {
@@ -220,7 +284,9 @@ const BillDetailPage: React.FC = () => {
                     setEditForm({
                       market_adi: bill.market_adi,
                       tarih: bill.tarih,
-                      toplam_tutar: bill.toplam_tutar
+                      toplam_tutar: bill.toplam_tutar,
+                      urunler: bill.urunler,
+                      participants: bill.participants.map((p: any) => p._id)
                     });
                   }}
                   className="shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300"
@@ -331,49 +397,105 @@ const BillDetailPage: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-2xl font-black text-gray-900 mb-1">Katılımcılar</h3>
-                <p className="text-sm font-semibold text-gray-600">{bill.participants.length} kişi</p>
+                <p className="text-sm font-semibold text-gray-600">
+                  {isEditing 
+                    ? `${editForm.participants.length} kişi seçildi` 
+                    : `${bill.participants.length} kişi`
+                  }
+                </p>
               </div>
             </div>
 
-            <div className="space-y-4">
-              {bill.participants.map((participant, index) => (
-                <div
-                  key={index}
-                  className="group relative overflow-hidden rounded-2xl border-2 p-4 sm:p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 bg-linear-to-br from-blue-50 via-indigo-50 to-purple-50 border-blue-200 hover:border-blue-300"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black text-lg shadow-lg group-hover:scale-110 transition-transform duration-300 bg-linear-to-br from-blue-500 to-purple-600">
-                        {participant.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="font-black text-gray-900 text-lg mb-1">{participant.name}</p>
-                        <p className="text-sm text-gray-500 font-medium">@{participant.username}</p>
+            {isEditing ? (
+              <div className="space-y-4">
+                <div className="bg-blue-50 rounded-2xl p-4 mb-4">
+                  <p className="text-sm font-bold text-blue-800 mb-3">Katılımcı Seç:</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {allUsers.map((user) => (
+                      <label
+                        key={user._id}
+                        className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all duration-300 ${
+                          editForm.participants.includes(user._id)
+                            ? 'bg-blue-100 border-blue-300 shadow-md'
+                            : 'bg-white border-gray-200 hover:border-blue-200'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={editForm.participants.includes(user._id)}
+                          onChange={() => toggleParticipant(user._id)}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-black text-xs">
+                            {user.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-gray-900">{user.name}</p>
+                            <p className="text-xs text-gray-500">@{user.username}</p>
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {bill.participants.map((participant, index) => (
+                  <div
+                    key={index}
+                    className="group relative overflow-hidden rounded-2xl border-2 p-4 sm:p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 bg-linear-to-br from-blue-50 via-indigo-50 to-purple-50 border-blue-200 hover:border-blue-300"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black text-lg shadow-lg group-hover:scale-110 transition-transform duration-300 bg-linear-to-br from-blue-500 to-purple-600">
+                          {participant.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-black text-gray-900 text-lg mb-1">{participant.name}</p>
+                          <p className="text-sm text-gray-500 font-medium">@{participant.username}</p>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
         {/* Ürünler Listesi */}
         <div className="mt-8 bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl p-6 sm:p-8 border border-gray-100">
-          <div className="flex items-center gap-4 mb-8">
-            <div className="bg-linear-to-br from-orange-500 to-red-600 rounded-2xl p-4 shadow-lg">
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5H7a2 2 0 00-2 2v1m3 0h6m3 0v11a2 2 0 01-2 2H8a2 2 0 01-2-2V8m3 0V7a2 2 0 012-2h3a2 2 0 012 2v1M12 10v4m-2-2h4" />
-              </svg>
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-4">
+              <div className="bg-linear-to-br from-orange-500 to-red-600 rounded-2xl p-4 shadow-lg">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5H7a2 2 0 00-2 2v1m3 0h6m3 0v11a2 2 0 01-2 2H8a2 2 0 01-2-2V8m3 0V7a2 2 0 012-2h3a2 2 0 012 2v1M12 10v4m-2-2h4" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-2xl font-black text-gray-900 mb-1">Ürünler</h3>
+                <p className="text-sm font-semibold text-gray-600">
+                  {isEditing ? editForm.urunler.length : bill.urunler.length} ürün
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-2xl font-black text-gray-900 mb-1">Ürünler</h3>
-              <p className="text-sm font-semibold text-gray-600">{bill.urunler.length} ürün</p>
-            </div>
+            {isEditing && (
+              <Button
+                onClick={addProduct}
+                className="bg-linear-to-r from-green-500 to-emerald-600 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Ürün Ekle
+              </Button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {bill.urunler.map((urun, index) => (
+            {(isEditing ? editForm.urunler : bill.urunler).map((urun, index) => (
               <div
                 key={index}
                 className={`group relative overflow-hidden rounded-2xl border-2 p-4 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 ${
@@ -382,17 +504,59 @@ const BillDetailPage: React.FC = () => {
                     : 'bg-linear-to-br from-gray-50 via-slate-50 to-gray-50 border-gray-200 hover:border-gray-300'
                 }`}
               >
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-bold text-gray-900 text-sm">{urun.urun_adi}</h4>
-                    {urun.isPersonal && (
-                      <span className="bg-purple-100 text-purple-700 text-xs font-bold px-2 py-1 rounded-full">
-                        Kişiye Özel
-                      </span>
-                    )}
+                {isEditing ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <input
+                        type="text"
+                        value={urun.urun_adi}
+                        onChange={(e) => updateProduct(index, 'urun_adi', e.target.value)}
+                        className="flex-1 px-3 py-2 rounded-xl border border-gray-300 focus:border-blue-500 focus:outline-none text-sm font-bold"
+                        placeholder="Ürün adı"
+                      />
+                      <button
+                        onClick={() => removeProduct(index)}
+                        className="ml-2 bg-red-100 text-red-600 hover:bg-red-200 p-2 rounded-xl transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={urun.fiyat}
+                        onChange={(e) => updateProduct(index, 'fiyat', parseFloat(e.target.value) || 0)}
+                        step="0.01"
+                        className="flex-1 px-3 py-2 rounded-xl border border-gray-300 focus:border-blue-500 focus:outline-none text-sm font-bold"
+                        placeholder="Fiyat"
+                      />
+                      <span className="text-gray-500 font-bold">₺</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={urun.isPersonal || false}
+                        onChange={(e) => updateProduct(index, 'isPersonal', e.target.checked)}
+                        className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                      />
+                      <label className="text-xs font-bold text-gray-700">Kişiye Özel</label>
+                    </div>
                   </div>
-                  <p className="text-lg font-black text-gray-700">₺{urun.fiyat.toFixed(2)}</p>
-                </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold text-gray-900 text-sm">{urun.urun_adi}</h4>
+                      {urun.isPersonal && (
+                        <span className="bg-purple-100 text-purple-700 text-xs font-bold px-2 py-1 rounded-full">
+                          Kişiye Özel
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-lg font-black text-gray-700">₺{urun.fiyat.toFixed(2)}</p>
+                  </div>
+                )}
               </div>
             ))}
           </div>

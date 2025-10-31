@@ -80,10 +80,10 @@ const Layout: React.FC<LayoutProps> = ({ children, title = 'Bill Split' }) => {
                     ? 'bg-linear-to-br from-purple-600 to-pink-600' 
                     : 'bg-linear-to-br from-blue-600 to-cyan-600'
                 }`}>
-                  {user?.name?.charAt(0).toUpperCase()}
+                  {(user?.name || user?.username)?.charAt(0).toUpperCase()}
                 </div>
                 <div className="text-left">
-                  <p className="text-sm font-bold text-gray-800">{user?.name}</p>
+                  <p className="text-sm font-bold text-gray-800">{user?.name || user?.username}</p>
                   <p className="text-xs text-gray-500 font-medium">
                     {user?.role === 'admin' ? '👑 Admin' : '👤 Kullanıcı'}
                   </p>
@@ -144,6 +144,24 @@ const Layout: React.FC<LayoutProps> = ({ children, title = 'Bill Split' }) => {
 
       {/* Mobile Bottom Navigation */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-gray-200/50 shadow-2xl z-50">
+        {/* Mobile User Info */}
+        <div className="flex items-center justify-center py-2 px-4 border-b border-gray-200/30">
+          <div className="flex items-center gap-2 bg-white/70 backdrop-blur-sm rounded-2xl px-3 py-1.5 shadow-sm">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-black text-xs shadow-md ${
+              user?.role === 'admin' 
+                ? 'bg-linear-to-br from-purple-600 to-pink-600' 
+                : 'bg-linear-to-br from-blue-600 to-cyan-600'
+            }`}>
+              {(user?.name || user?.username)?.charAt(0).toUpperCase()}
+            </div>
+            <div className="text-left">
+              <p className="text-xs font-bold text-gray-800">{user?.name || user?.username}</p>
+              <p className="text-xs text-gray-500 font-medium">
+                {user?.role === 'admin' ? '👑' : '👤'}
+              </p>
+            </div>
+          </div>
+        </div>
         <div className="flex justify-around items-center py-2 px-4">
           {navigation.map((item, index) => {
             const isActive = router.pathname === item.href;

@@ -22,6 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .sort({ createdAt: -1 });
 
     const formattedUsers = users.map(user => ({
+      _id: user._id,
       id: user._id,
       username: user.username,
       name: user.name,
