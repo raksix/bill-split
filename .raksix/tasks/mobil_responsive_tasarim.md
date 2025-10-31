@@ -11,12 +11,17 @@
 
 ## Devam Eden Görevler 🔄
 
+- [x] Admin'lerin kullanıcı panelini kullanabilmesi
+  - [x] Dashboard.tsx'den admin yönlendirmesi kaldırıldı
+  - [x] Layout navigation'a admin için dashboard eklendi
+  - [x] Admin paneline dashboard geçiş butonu eklendi
+  - [x] Mobil navbar'da admin'ler için ek butonlar eklendi
+
 - [ ] Login sayfası mobil responsive tasarım
 - [ ] Setup sayfası mobil optimizasyon
 - [ ] Bills/Upload sayfası mobil tasarım
 - [ ] Bills/List sayfası mobil tasarım  
 - [ ] Bills/Detail sayfası mobil tasarım
-- [ ] Admin paneli mobil optimizasyon
 - [ ] Reports sayfası mobil tasarım
 
 ## Teknik Detaylar

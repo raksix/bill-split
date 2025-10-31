@@ -199,7 +199,44 @@ const AdminPage: React.FC = () => {
         </div>
 
         {/* Ultra Premium Hızlı Erişim Kartları */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+          {/* Kullanıcı Dashboard */}
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="group relative overflow-hidden bg-linear-to-br from-emerald-50 via-white to-teal-50 rounded-3xl shadow-2xl p-8 hover:shadow-3xl transform transition-all duration-500 hover:scale-110 hover:-translate-y-3 border border-emerald-100"
+          >
+            {/* Glowing Background Effect */}
+            <div className="absolute inset-0 bg-linear-to-br from-emerald-500/10 to-teal-500/10 opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
+            
+            {/* Floating Particles */}
+            <div className="absolute top-4 right-4 w-3 h-3 bg-emerald-300 rounded-full animate-ping"></div>
+            <div className="absolute top-8 right-8 w-2 h-2 bg-teal-300 rounded-full animate-pulse"></div>
+            
+            <div className="relative z-10">
+              <div className="flex flex-col items-center gap-4 text-center">
+                <div className="bg-linear-to-br from-emerald-500 to-emerald-600 rounded-2xl p-4 shadow-xl group-hover:shadow-2xl group-hover:scale-110 transition-all duration-300">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a2 2 0 012-2h4a2 2 0 012 2v4m-6 4l2 2 4-4" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-gray-900 mb-1 group-hover:text-emerald-700 transition-colors">
+                    Dashboard
+                  </h3>
+                  <p className="text-gray-600 font-medium text-sm">Kullanıcı paneline geç</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center justify-center text-emerald-600 font-bold text-sm mt-4 group-hover:gap-2 transition-all group-hover:translate-x-1">
+                <span>Geç</span>
+                <svg className="w-4 h-4 group-hover:rotate-12 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+              </div>
+            </div>
+          </button>
+
           <button
             onClick={() => router.push('/admin/users')}
             className="group relative overflow-hidden bg-linear-to-br from-blue-50 via-white to-cyan-50 rounded-3xl shadow-2xl p-8 hover:shadow-3xl transform transition-all duration-500 hover:scale-110 hover:-translate-y-3 border border-blue-100"
@@ -212,31 +249,31 @@ const AdminPage: React.FC = () => {
             <div className="absolute top-8 right-8 w-2 h-2 bg-cyan-300 rounded-full animate-pulse"></div>
             
             <div className="relative z-10">
-              <div className="flex items-center gap-6 mb-6">
-                <div className="bg-linear-to-br from-blue-500 to-blue-600 rounded-2xl p-5 shadow-xl group-hover:shadow-2xl group-hover:scale-110 transition-all duration-300">
-                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex flex-col items-center gap-4 text-center">
+                <div className="bg-linear-to-br from-blue-500 to-blue-600 rounded-2xl p-4 shadow-xl group-hover:shadow-2xl group-hover:scale-110 transition-all duration-300">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                   </svg>
                 </div>
-                <div className="text-left">
-                  <h3 className="text-2xl font-black text-gray-900 mb-2 group-hover:text-blue-700 transition-colors">
-                    Kullanıcı Yönetimi
+                <div>
+                  <h3 className="text-lg font-black text-gray-900 mb-1 group-hover:text-blue-700 transition-colors">
+                    Kullanıcılar
                   </h3>
-                  <p className="text-gray-600 font-medium">Tüm kullanıcıları düzenle ve yönet</p>
+                  <p className="text-gray-600 font-medium text-sm">Kullanıcı yönetimi</p>
                 </div>
               </div>
               
               {/* Stats Preview */}
-              <div className="bg-blue-50 rounded-2xl p-4 mb-6 group-hover:bg-blue-100 transition-colors">
-                <div className="flex items-center justify-between">
-                  <span className="text-blue-700 font-semibold text-sm">Aktif Kullanıcılar</span>
-                  <span className="text-2xl font-black text-blue-800">{stats.totalUsers}</span>
+              <div className="bg-blue-50 rounded-2xl p-3 mt-4 group-hover:bg-blue-100 transition-colors">
+                <div className="text-center">
+                  <span className="text-blue-700 font-semibold text-xs">Aktif</span>
+                  <div className="text-xl font-black text-blue-800">{stats.totalUsers}</div>
                 </div>
               </div>
               
-              <div className="flex items-center justify-end text-blue-600 font-bold text-lg group-hover:gap-3 transition-all group-hover:translate-x-2">
+              <div className="flex items-center justify-center text-blue-600 font-bold text-sm mt-4 group-hover:gap-2 transition-all group-hover:translate-x-1">
                 <span>Yönet</span>
-                <svg className="w-6 h-6 group-hover:rotate-45 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 group-hover:rotate-12 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                 </svg>
               </div>
@@ -252,31 +289,31 @@ const AdminPage: React.FC = () => {
             <div className="absolute bottom-0 left-0 w-16 h-16 bg-pink-200 rounded-full opacity-20 group-hover:opacity-40 group-hover:scale-125 transition-all duration-700"></div>
             
             <div className="relative z-10">
-              <div className="flex items-center gap-6 mb-6">
-                <div className="bg-linear-to-br from-purple-500 to-purple-600 rounded-2xl p-5 shadow-xl group-hover:shadow-2xl group-hover:scale-110 transition-all duration-300">
-                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex flex-col items-center gap-4 text-center">
+                <div className="bg-linear-to-br from-purple-500 to-purple-600 rounded-2xl p-4 shadow-xl group-hover:shadow-2xl group-hover:scale-110 transition-all duration-300">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
-                <div className="text-left">
-                  <h3 className="text-2xl font-black text-gray-900 mb-2 group-hover:text-purple-700 transition-colors">
-                    Fatura Yönetimi
+                <div>
+                  <h3 className="text-lg font-black text-gray-900 mb-1 group-hover:text-purple-700 transition-colors">
+                    Faturalar
                   </h3>
-                  <p className="text-gray-600 font-medium">Tüm faturaları görüntüle ve yönet</p>
+                  <p className="text-gray-600 font-medium text-sm">Fatura yönetimi</p>
                 </div>
               </div>
               
               {/* Stats Preview */}
-              <div className="bg-purple-50 rounded-2xl p-4 mb-6 group-hover:bg-purple-100 transition-colors">
-                <div className="flex items-center justify-between">
-                  <span className="text-purple-700 font-semibold text-sm">Toplam Faturalar</span>
-                  <span className="text-2xl font-black text-purple-800">{stats.totalBills}</span>
+              <div className="bg-purple-50 rounded-2xl p-3 mt-4 group-hover:bg-purple-100 transition-colors">
+                <div className="text-center">
+                  <span className="text-purple-700 font-semibold text-xs">Toplam</span>
+                  <div className="text-xl font-black text-purple-800">{stats.totalBills}</div>
                 </div>
               </div>
               
-              <div className="flex items-center justify-end text-purple-600 font-bold text-lg group-hover:gap-3 transition-all group-hover:translate-x-2">
+              <div className="flex items-center justify-center text-purple-600 font-bold text-sm mt-4 group-hover:gap-2 transition-all group-hover:translate-x-1">
                 <span>Görüntüle</span>
-                <svg className="w-6 h-6 group-hover:rotate-12 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 group-hover:rotate-12 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 </svg>
@@ -297,34 +334,34 @@ const AdminPage: React.FC = () => {
             </div>
             
             <div className="relative z-10">
-              <div className="flex items-center gap-6 mb-6">
-                <div className="bg-linear-to-br from-green-500 to-green-600 rounded-2xl p-5 shadow-xl group-hover:shadow-2xl group-hover:scale-110 transition-all duration-300">
-                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex flex-col items-center gap-4 text-center">
+                <div className="bg-linear-to-br from-green-500 to-green-600 rounded-2xl p-4 shadow-xl group-hover:shadow-2xl group-hover:scale-110 transition-all duration-300">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                 </div>
-                <div className="text-left">
-                  <h3 className="text-2xl font-black text-gray-900 mb-2 group-hover:text-green-700 transition-colors">
-                    Raporlar & Analiz
+                <div>
+                  <h3 className="text-lg font-black text-gray-900 mb-1 group-hover:text-green-700 transition-colors">
+                    Raporlar
                   </h3>
-                  <p className="text-gray-600 font-medium">Detaylı istatistikleri incele</p>
+                  <p className="text-gray-600 font-medium text-sm">Detaylı analiz</p>
                 </div>
               </div>
               
               {/* Progress Indicator */}
-              <div className="bg-green-50 rounded-2xl p-4 mb-6 group-hover:bg-green-100 transition-colors">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-green-700 font-semibold text-sm">Veri Analizi</span>
-                  <span className="text-green-600 text-xs font-bold">%100</span>
-                </div>
-                <div className="bg-green-200 rounded-full h-2">
-                  <div className="bg-green-500 rounded-full h-2 w-full group-hover:animate-pulse"></div>
+              <div className="bg-green-50 rounded-2xl p-3 mt-4 group-hover:bg-green-100 transition-colors">
+                <div className="text-center">
+                  <span className="text-green-700 font-semibold text-xs">Hazır</span>
+                  <div className="text-sm font-bold text-green-600 mt-1">%100</div>
+                  <div className="bg-green-200 rounded-full h-1 mt-2">
+                    <div className="bg-green-500 rounded-full h-1 w-full group-hover:animate-pulse"></div>
+                  </div>
                 </div>
               </div>
               
-              <div className="flex items-center justify-end text-green-600 font-bold text-lg group-hover:gap-3 transition-all group-hover:translate-x-2">
+              <div className="flex items-center justify-center text-green-600 font-bold text-sm mt-4 group-hover:gap-2 transition-all group-hover:translate-x-1">
                 <span>İncele</span>
-                <svg className="w-6 h-6 group-hover:scale-125 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 group-hover:scale-125 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M7 12l3-3l3 3l4-4" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 21l4-4l-4-4M16 21l4-4l-4-4" />
                 </svg>

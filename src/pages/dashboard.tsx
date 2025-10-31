@@ -29,8 +29,6 @@ const DashboardPage: React.FC = () => {
     if (!authLoading) {
       if (!user) {
         router.push('/login');
-      } else if (user.role === 'admin') {
-        router.push('/admin');
       } else {
         fetchBalance();
       }
