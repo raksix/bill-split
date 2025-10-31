@@ -1,4 +1,4 @@
-{
+   {
   "name": "bill-split",
   "version": "0.1.0",
   "private": true,
@@ -11,13 +11,25 @@
   "dependencies": {
     "react": "19.2.0",
     "react-dom": "19.2.0",
-    "next": "16.0.1"
+    "next": "16.0.1",
+    "mongodb": "^6.10.0",
+    "mongoose": "^8.8.3",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "@google/generative-ai": "^0.21.0",
+    "axios": "^1.7.7",
+    "recharts": "^2.13.3",
+    "react-hot-toast": "^2.4.1",
+    "cookie": "^0.7.2"
   },
   "devDependencies": {
     "typescript": "^5",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/cookie": "^0.6.0",
     "@tailwindcss/postcss": "^4",
     "tailwindcss": "^4",
     "eslint": "^9",
