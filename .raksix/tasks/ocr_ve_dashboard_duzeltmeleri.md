@@ -1,2 +1,3 @@
 - [x] OCR ürün isimlerinin kaydedilmesini düzelt
 - [x] Dashboard bakiyesini canlı güncelle
+- [x] Fatura yükleyince direkt fatura detayına git ve düzenleme imkanı sağla

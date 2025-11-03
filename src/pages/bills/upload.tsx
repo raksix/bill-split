@@ -154,6 +154,13 @@ const BillUploadPage: React.FC = () => {
       });
 
       toast.success(`${file.name} faturası başarıyla işlendi`);
+
+      // Fatura detayına yönlendir
+      if (result?.bill?.id || result?.bill?._id) {
+        setTimeout(() => {
+          router.push(`/bills/${result.bill.id || result.bill._id}`);
+        }, 1500);
+      }
     } catch (err: any) {
       const message = err?.message || 'Yükleme başarısız oldu';
       console.error('Upload error', err);

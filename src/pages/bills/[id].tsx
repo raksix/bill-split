@@ -501,6 +501,52 @@ const BillDetailPage: React.FC = () => {
             )}
           </div>
 
+          {isEditing && (
+            <div className="mb-6 bg-blue-50 border border-blue-200 rounded-2xl p-4">
+              <div className="flex flex-wrap gap-2 mb-4">
+                <Button
+                  onClick={() => {
+                    const newProducts = editForm.urunler.map(item => ({ ...item, isPersonal: false }));
+                    setEditForm({ ...editForm, urunler: newProducts });
+                  }}
+                  className="bg-green-100 hover:bg-green-200 text-green-700 text-sm py-2 px-4 rounded-lg"
+                >
+                  👥 Hepsini Ortak Yap
+                </Button>
+                <Button
+                  onClick={() => {
+                    const billData = {
+                      billId: bill._id,
+                      urunler: editForm.urunler,
+                      participants: editForm.participants
+                    };
+                    
+                    fetch('/api/bills/save', {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(billData)
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                      if (data.message) {
+                        toast.success('Fatura paylaşımı kaydedildi!');
+                      }
+                    })
+                    .catch(error => {
+                      toast.error('Kaydetme hatası');
+                    });
+                  }}
+                  className="bg-purple-100 hover:bg-purple-200 text-purple-700 text-sm py-2 px-4 rounded-lg"
+                >
+                  💰 Paylaşımı Kaydet
+                </Button>
+              </div>
+              <p className="text-sm text-blue-700">
+                💡 İpucu: Kişiye özel ürünler paylaşımdan çıkarılır, sadece ortak ürünler bölünür.
+              </p>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {(isEditing ? editForm.urunler : bill.urunler).map((urun, index) => (
               <div
@@ -550,6 +596,33 @@ const BillDetailPage: React.FC = () => {
                       />
                       <label className="text-xs font-bold text-gray-700">Kişiye Özel</label>
                     </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => updateProduct(index, 'fiyat', Math.max(0, urun.fiyat + 0.5))}
+                        className="flex-1 bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs font-bold py-2 px-3 rounded-lg transition-colors"
+                      >
+                        +0.5₺
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateProduct(index, 'fiyat', Math.max(0, urun.fiyat - 0.5))}
+                        className="flex-1 bg-red-100 hover:bg-red-200 text-red-700 text-xs font-bold py-2 px-3 rounded-lg transition-colors"
+                      >
+                        -0.5₺
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => updateProduct(index, 'isPersonal', !urun.isPersonal)}
+                      className={`w-full text-xs font-bold py-2 px-3 rounded-lg transition-colors ${
+                        urun.isPersonal
+                          ? 'bg-purple-100 hover:bg-purple-200 text-purple-700'
+                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      }`}
+                    >
+                      {urun.isPersonal ? '👤 Kişiye Özel' : '👥 Ortak Ürün'}
+                    </button>
                   </div>
                 ) : (
                   <div className="space-y-2">
