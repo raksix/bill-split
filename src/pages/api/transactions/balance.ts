@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import connectDB from '@/lib/db';
+import jwt from 'jsonwebtoken';
+import { connectToDatabase } from '@/lib/mongodb';
 import Transaction from '@/models/transaction.model';
-import { getUserFromRequest } from '@/lib/auth';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -9,31 +9,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const currentUser = getUserFromRequest(req);
-
-    if (!currentUser) {
-      return res.status(401).json({ message: 'Oturum bulunamadı' });
+    // JWT token verification
+    const token = req.cookies.token;
+    if (!token) {
+      return res.status(401).json({ message: 'Token bulunamadı' });
     }
 
-    await connectDB();
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { userId: string };
+    const userId = decoded.userId;
 
-    const debts = await Transaction.find({
-      fromUser: currentUser.userId,
-      isPaid: false,
-    })
-      .populate('toUser', 'name username')
-      .populate('billId', 'market_adi tarih');
+    await connectToDatabase();
 
-    const credits = await Transaction.find({
-      toUser: currentUser.userId,
-      isPaid: false,
-    })
-      .populate('fromUser', 'name username')
-      .populate('billId', 'market_adi tarih');
+    // Get all unpaid transactions for the user
+    const [debts, credits] = await Promise.all([
+      // Unpaid debts (user owes money to others)
+      Transaction.find({
+        fromUser: userId,
+        isPaid: false,
+      })
+        .populate('toUser', 'name username')
+        .populate('billId', 'market_adi tarih toplam_tutar')
+        .sort({ createdAt: -1 }),
 
+      // Unpaid credits (others owe money to user)  
+      Transaction.find({
+        toUser: userId,
+        isPaid: false,
+      })
+        .populate('fromUser', 'name username')
+        .populate('billId', 'market_adi tarih toplam_tutar')
+        .sort({ createdAt: -1 })
+    ]);
+
+    // Calculate totals
     const totalDebt = debts.reduce((sum, transaction) => sum + transaction.amount, 0);
     const totalCredit = credits.reduce((sum, transaction) => sum + transaction.amount, 0);
 
+    // Group debts by person
     const debtsByPerson = debts.reduce((acc: any, transaction) => {
       const userId = transaction.toUser._id.toString();
       if (!acc[userId]) {
@@ -48,6 +60,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return acc;
     }, {});
 
+    // Group credits by person
     const creditsByPerson = credits.reduce((acc: any, transaction) => {
       const userId = transaction.fromUser._id.toString();
       if (!acc[userId]) {
@@ -68,8 +81,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       debts: Object.values(debtsByPerson),
       credits: Object.values(creditsByPerson),
     });
-  } catch (error) {
-    console.error('Balance error:', error);
-    return res.status(500).json({ message: 'Sunucu hatası' });
+
+  } catch (error: any) {
+    console.error('Balance API error:', error);
+    
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ message: 'Geçersiz token' });
+    }
+
+    return res.status(500).json({
+      message: 'Sunucu hatası',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 }
