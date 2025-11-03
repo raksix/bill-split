@@ -103,15 +103,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Manuel fatura oluştur
     const newBill = new Bill({
       userId,
+      uploadedBy: userId,
+      participants: [userId],
       market_adi: market_adi.trim(),
       tarih: billDate,
       toplam_tutar: Number(toplam_tutar),
       urunler: formattedProducts,
       description: description?.trim(),
       isManual: true, // Manuel eklenen fatura
-      imageUrl: null, // Manuel faturalarda resim yok
-      createdAt: new Date(),
-      updatedAt: new Date()
+      imageUrl: null // Manuel faturalarda resim yok
     });
 
     await newBill.save();
@@ -128,7 +128,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         toplam_tutar: newBill.toplam_tutar,
         urunler: newBill.urunler,
         description: newBill.description,
-        isManual: true
+        isManual: true,
+        uploadedBy: {
+          _id: newBill.uploadedBy,
+          name: 'Siz',
+        }
       }
     });
 

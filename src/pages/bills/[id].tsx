@@ -187,8 +187,11 @@ const BillDetailPage: React.FC = () => {
     }
   };
 
-  const canEditOrDelete = user && bill && (
-    user.userId === bill.uploadedBy._id || user.role === 'admin'
+  const canEditOrDelete = Boolean(
+    user &&
+    bill &&
+    bill.uploadedBy &&
+    (user.userId === bill.uploadedBy._id?.toString() || user.role === 'admin')
   );
 
   if (authLoading || loading) {
@@ -198,6 +201,10 @@ const BillDetailPage: React.FC = () => {
   if (!bill) {
     return null;
   }
+
+  const uploaderName = bill.uploadedBy?.name || 'Bilinmeyen Kullanıcı';
+  const uploaderUsername = bill.uploadedBy?.username ? `@${bill.uploadedBy.username}` : 'Kimlik bulunamadı';
+  const uploaderInitial = uploaderName.charAt(0).toUpperCase();
 
   return (
     <>
@@ -375,11 +382,11 @@ const BillDetailPage: React.FC = () => {
                 <div className="bg-blue-50 rounded-2xl p-4 border border-blue-200">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-linear-to-br from-blue-600 to-cyan-600 flex items-center justify-center text-white font-black text-sm shadow-lg">
-                      {bill.uploadedBy.name.charAt(0).toUpperCase()}
+                      {uploaderInitial}
                     </div>
                     <div>
-                      <p className="font-bold text-blue-900">{bill.uploadedBy.name}</p>
-                      <p className="text-sm text-blue-600">@{bill.uploadedBy.username}</p>
+                      <p className="font-bold text-blue-900">{uploaderName}</p>
+                      <p className="text-sm text-blue-600">{uploaderUsername}</p>
                     </div>
                   </div>
                 </div>

@@ -1,0 +1,2 @@
+- [x] OCR ürün isimlerinin kaydedilmesini düzelt
+- [x] Dashboard bakiyesini canlı güncelle

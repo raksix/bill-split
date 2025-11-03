@@ -4,9 +4,6 @@ import { connectToDatabase } from '@/lib/mongodb';
 import Bill from '@/models/bill.model';
 import { processReceiptImage } from '@/lib/gemini';
 import { uploadToRakCDN } from '@/lib/rakcdn';
-import QueueProcessor from '@/lib/queue-processor';
-import fs from 'fs';
-import path from 'path';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -37,61 +34,130 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
     const imageBuffer = Buffer.from(base64Data, 'base64');
 
-    // ADIM 1: Önce CDN'e yükle
-    console.log('ADIM 1: CDN\'e yükleme başlatılıyor...');
+    // ADIM 1: CDN'e yükleme
     const uploadResult = await uploadToRakCDN(imageBuffer, `bill_${userId}_${Date.now()}.png`);
-    
-    if (!uploadResult.success) {
+    if (!uploadResult.success || !uploadResult.url) {
       return res.status(500).json({
         message: 'Resim yüklenemedi',
         error: uploadResult.error
       });
     }
 
-    console.log('CDN yükleme başarılı:', uploadResult.url);
+    // ADIM 2: OCR işlemi
+    const ocrResult = await processReceiptImage(base64Data);
 
-    // ADIM 2: Bill kaydını oluştur (imageUrl ile)
-    const bill = await Bill.create({
-      uploadedBy: userId,
-      market_adi: 'İşleniyor...', // OCR sonucunda güncellenecek
-      tarih: new Date().toISOString().split('T')[0], // Geçici tarih
-      urunler: [], // OCR sonucunda doldurulacak
-      toplam_tutar: 0, // OCR sonucunda güncellenecek
-      participants: [userId],
-      imageUrl: uploadResult.url!, // CDN URL'si direkt kaydedildi
+    // Tarih formatını normalize et
+    const normalizedDate = (() => {
+      try {
+        if (!ocrResult.tarih) return new Date();
+        if (ocrResult.tarih.includes('.')) {
+          const [day, month, year] = ocrResult.tarih.split('.').map(part => parseInt(part, 10));
+          if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+            return new Date(year, month - 1, day);
+          }
+        }
+        const parsed = new Date(ocrResult.tarih);
+        if (!isNaN(parsed.getTime())) {
+          return parsed;
+        }
+      } catch (err) {
+        console.warn('Tarih parse edilemedi, bugün atanacak:', err);
+      }
+      return new Date();
+    })();
+
+    const toNumber = (value: unknown): number => {
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        return value;
+      }
+      if (typeof value === 'string') {
+        const cleaned = value.replace(/[^0-9,.-]/g, '').replace(',', '.');
+        const parsed = parseFloat(cleaned);
+        if (!Number.isNaN(parsed)) {
+          return parsed;
+        }
+      }
+      return 0;
+    };
+
+    const formattedProducts = (Array.isArray(ocrResult.urunler) ? ocrResult.urunler : []).map((item, index) => {
+      const normalizedItem = item as Record<string, unknown>;
+
+      const nameCandidates = [
+        normalizedItem['urun_adi'],
+        normalizedItem['urunAdi'],
+        normalizedItem['ad'],
+        normalizedItem['name'],
+        normalizedItem['product_name'],
+        normalizedItem['productName'],
+        normalizedItem['isim'],
+        normalizedItem['title'],
+        normalizedItem['description'],
+      ];
+
+      const productName = nameCandidates.find(
+        (candidate): candidate is string => typeof candidate === 'string' && candidate.trim().length > 0
+      )?.trim() || `Ürün ${index + 1}`;
+
+      const quantityRaw = normalizedItem['miktar'] ?? normalizedItem['quantity'] ?? 1;
+      const quantity = Math.max(1, Math.round(toNumber(quantityRaw)) || 1);
+
+      const totalRaw =
+        normalizedItem['toplam'] ??
+        normalizedItem['total'] ??
+        normalizedItem['toplam_tutar'] ??
+        normalizedItem['totalPrice'] ??
+        normalizedItem['total_price'] ??
+        normalizedItem['fiyat'] ??
+        normalizedItem['price'];
+      const unitRaw =
+        normalizedItem['fiyat'] ??
+        normalizedItem['price'] ??
+        normalizedItem['birim_fiyat'] ??
+        normalizedItem['unitPrice'];
+
+      const totalPrice = toNumber(totalRaw);
+      const unitPrice = toNumber(unitRaw) || (quantity ? totalPrice / quantity : 0);
+      const resolvedTotal = totalPrice || unitPrice * quantity;
+
+      return {
+        ad: productName,
+        urun_adi: productName,
+        fiyat: Number(unitPrice.toFixed(2)),
+        miktar: quantity,
+        birim: (typeof normalizedItem['birim'] === 'string' && (normalizedItem['birim'] as string).trim()) ||
+          (typeof normalizedItem['unit'] === 'string' && (normalizedItem['unit'] as string).trim()) ||
+          'adet',
+        toplam: Number(resolvedTotal.toFixed(2)),
+      };
     });
 
-    console.log('Fatura kaydı oluşturuldu:', bill._id);
+    const totalAmount = Number(ocrResult.toplam_tutar) || formattedProducts.reduce((sum, product) => sum + product.toplam!, 0);
 
-    // ADIM 3: OCR işlemini queue'ya ekle
-    const queueItem = await QueueProcessor.addToQueue(
-      'bill_ocr',
+    const bill = await Bill.create({
+      uploadedBy: userId,
       userId,
-      {
-        billId: bill._id!.toString(),
-        imageUrl: uploadResult.url!,
-        imageBase64: imageBase64, // OCR için gerekli
-        progressPercentage: 0,
-        processingStep: 'CDN yükleme tamamlandı'
-      },
-      15 // OCR için yüksek öncelik
-    );
+      participants: [userId],
+      market_adi: ocrResult.market_adi || 'Fatura',
+      tarih: normalizedDate,
+      urunler: formattedProducts,
+      toplam_tutar: totalAmount,
+      imageUrl: uploadResult.url,
+      isManual: false
+    });
 
-    console.log('OCR işlemi queue\'ya eklendi:', queueItem._id);
-
-    return res.status(201).json({ 
-      message: 'Fatura resmi yüklendi, AI işleme başladı',
+    return res.status(201).json({
+      message: 'Fatura başarıyla işlendi',
       bill: {
         id: bill._id,
         market_adi: bill.market_adi,
         tarih: bill.tarih,
         urunler: bill.urunler,
         toplam_tutar: bill.toplam_tutar,
-        imageUrl: bill.imageUrl
-      },
-      queueId: queueItem._id,
-      status: 'processing',
-      message_detail: 'Resim başarıyla yüklendi. Yapay zeka faturayı analiz ediyor...'
+        imageUrl: bill.imageUrl,
+        participants: bill.participants,
+        uploadedBy: bill.uploadedBy
+      }
     });
 
   } catch (error: any) {

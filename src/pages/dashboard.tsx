@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { useAuth } from '@/context/auth-context';
@@ -24,32 +24,60 @@ const DashboardPage: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const [balance, setBalance] = useState<BalanceData | null>(null);
   const [loading, setLoading] = useState(true);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
-    if (!authLoading) {
-      if (!user) {
-        router.push('/login');
-      } else {
-        fetchBalance();
-      }
-    }
-  }, [user, authLoading, router]);
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
-  const fetchBalance = async () => {
+  const fetchBalance = useCallback(async () => {
     try {
       const response = await fetch('/api/transactions/balance');
       if (response.ok) {
         const data = await response.json();
-        setBalance(data);
+        if (isMountedRef.current) {
+          setBalance(data);
+        }
       } else {
         toast.error('Borç bilgileri alınamadı');
       }
     } catch (error) {
       toast.error('Bağlantı hatası');
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
-  };
+  }, [isMountedRef]);
+
+  useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
+    if (!user) {
+      setLoading(false);
+      router.push('/login');
+      return;
+    }
+
+    let intervalId: ReturnType<typeof setInterval> | undefined;
+
+    const startPolling = async () => {
+      await fetchBalance();
+      intervalId = setInterval(fetchBalance, 15000);
+    };
+
+    startPolling();
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [authLoading, user, router, fetchBalance]);
 
   if (authLoading || loading) {
     return <Loading fullScreen />;
