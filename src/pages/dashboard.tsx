@@ -24,6 +24,7 @@ const DashboardPage: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const [balance, setBalance] = useState<BalanceData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(true);
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -48,6 +49,7 @@ const DashboardPage: React.FC = () => {
     } finally {
       if (isMountedRef.current) {
         setLoading(false);
+        setInitialLoad(false);
       }
     }
   }, [isMountedRef]);
@@ -81,12 +83,26 @@ const DashboardPage: React.FC = () => {
     };
   }, [authLoading, user, router, fetchBalance]);
 
-  if (authLoading || loading) {
+  if (authLoading || (loading && initialLoad)) {
     return <Loading fullScreen />;
   }
 
+  if (!balance && initialLoad) {
+    return <Loading fullScreen />;
+  }
+
+  // Eğer balance yoksa ve ilk yükleme değilse, boş sayfa göster
   if (!balance) {
-    return null;
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="text-6xl mb-4">😔</div>
+            <p className="text-gray-600">Veriler yüklenemedi</p>
+          </div>
+        </div>
+      </Layout>
+    );
   }
 
   const netBalance = balance.totalCredit - balance.totalDebt;

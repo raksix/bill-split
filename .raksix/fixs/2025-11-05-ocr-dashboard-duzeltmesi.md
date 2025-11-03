@@ -23,3 +23,4 @@
 - Tarih formatı düzeltildi: ISO string (2025-10-04T21:00:00.000Z) → Türkçe format (04.10.2025)
 - Dashboard loading spinner başlangıç durumu false yapıldı, sadece veri çekerken true oluyor
 - Navbar'dan dashboard'a geçişte `setLoading(false)` gereksiz çağrısı kaldırıldı, böylece loading state doğru çalışıyor
+- Dashboard loading spinner kesin çözümü: `initialLoad` state'i eklendi, sadece ilk yüklemede loading gösteriliyor. Sonraki interval güncellemelerinde spinner görünmüyor. Balance yoksa ve ilk yükleme değilse hata mesajı gösteriliyor.
