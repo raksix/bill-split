@@ -1,3 +1,6 @@
 - [x] OCR ürün isimlerinin kaydedilmesini düzelt
 - [x] Dashboard bakiyesini canlı güncelle
 - [x] Fatura yükleyince direkt fatura detayına git ve düzenleme imkanı sağla
+- [x] Upload sayfasında inline düzenleme özelliği ekle
+- [x] Tarih formatını düzelt (2025-10-04T21:00:00.000Z → 04.10.2025)
+- [x] Dashboard loading spinner sorunu çöz

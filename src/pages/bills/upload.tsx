@@ -32,6 +32,16 @@ interface UploadTask {
   billId?: string;
   imageUrl?: string;
   error?: string;
+  billData?: {
+    market_adi: string;
+    tarih: string;
+    urunler: Array<{
+      ad: string;
+      fiyat: number;
+      isPersonal?: boolean;
+    }>;
+    toplam_tutar: number;
+  };
 }
 
 const BillUploadPage: React.FC = () => {
@@ -39,6 +49,9 @@ const BillUploadPage: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const [uploadTasks, setUploadTasks] = useState<UploadTask[]>([]);
   const [isManualEntry, setIsManualEntry] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [allUsers, setAllUsers] = useState<Array<{_id: string; name: string; username: string}>>([]);
+  const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
   const [manualBillData, setManualBillData] = useState<ManualBillData>({
     title: '',
     date: new Date().toISOString().split('T')[0],
@@ -60,8 +73,23 @@ const BillUploadPage: React.FC = () => {
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login');
+    } else if (user) {
+      fetchUsers();
+      setSelectedParticipants([user.userId]);
     }
   }, [user, authLoading, router]);
+
+  const fetchUsers = async () => {
+    try {
+      const response = await fetch('/api/users/list');
+      if (response.ok) {
+        const data = await response.json();
+        setAllUsers(data.users || []);
+      }
+    } catch (error) {
+      console.error('Kullanıcılar yüklenirken hata:', error);
+    }
+  };
 
   const formatFileSize = (bytes: number): string => {
     if (!bytes) return '0 B';
@@ -150,17 +178,16 @@ const BillUploadPage: React.FC = () => {
         status: 'tamamlandı',
         message: 'Fatura başarıyla işlendi',
         billId: result?.bill?.id || result?.bill?._id,
-        imageUrl: result?.bill?.imageUrl
+        imageUrl: result?.bill?.imageUrl,
+        billData: {
+          market_adi: result?.bill?.market_adi || '',
+          tarih: result?.bill?.tarih || '',
+          urunler: result?.bill?.urunler || [],
+          toplam_tutar: result?.bill?.toplam_tutar || 0
+        }
       });
 
       toast.success(`${file.name} faturası başarıyla işlendi`);
-
-      // Fatura detayına yönlendir
-      if (result?.bill?.id || result?.bill?._id) {
-        setTimeout(() => {
-          router.push(`/bills/${result.bill.id || result.bill._id}`);
-        }, 1500);
-      }
     } catch (err: any) {
       const message = err?.message || 'Yükleme başarısız oldu';
       console.error('Upload error', err);
@@ -225,6 +252,105 @@ const BillUploadPage: React.FC = () => {
     return manualBillData.products.reduce((sum, product) => 
       sum + (product.price * product.quantity), 0
     );
+  };
+
+  const formatDate = (dateString: string): string => {
+    try {
+      const date = new Date(dateString);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${day}.${month}.${year}`;
+    } catch (error) {
+      return dateString;
+    }
+  };
+
+  const updateTaskProduct = (taskId: string, productIndex: number, field: string, value: any) => {
+    setUploadTasks(prev => prev.map(task => {
+      if (task.id === taskId && task.billData) {
+        const updatedProducts = [...task.billData.urunler];
+        updatedProducts[productIndex] = { ...updatedProducts[productIndex], [field]: value };
+        const newTotal = updatedProducts.reduce((sum, p) => sum + p.fiyat, 0);
+        return {
+          ...task,
+          billData: {
+            ...task.billData,
+            urunler: updatedProducts,
+            toplam_tutar: newTotal
+          }
+        };
+      }
+      return task;
+    }));
+  };
+
+  const removeTaskProduct = (taskId: string, productIndex: number) => {
+    setUploadTasks(prev => prev.map(task => {
+      if (task.id === taskId && task.billData) {
+        const updatedProducts = task.billData.urunler.filter((_, i) => i !== productIndex);
+        const newTotal = updatedProducts.reduce((sum, p) => sum + p.fiyat, 0);
+        return {
+          ...task,
+          billData: {
+            ...task.billData,
+            urunler: updatedProducts,
+            toplam_tutar: newTotal
+          }
+        };
+      }
+      return task;
+    }));
+  };
+
+  const addTaskProduct = (taskId: string) => {
+    setUploadTasks(prev => prev.map(task => {
+      if (task.id === taskId && task.billData) {
+        const newProduct = { ad: 'Yeni Ürün', fiyat: 0, isPersonal: false };
+        return {
+          ...task,
+          billData: {
+            ...task.billData,
+            urunler: [...task.billData.urunler, newProduct]
+          }
+        };
+      }
+      return task;
+    }));
+  };
+
+  const toggleParticipant = (userId: string) => {
+    setSelectedParticipants(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const saveBillChanges = async (taskId: string) => {
+    const task = uploadTasks.find(t => t.id === taskId);
+    if (!task?.billData || !task.billId) return;
+
+    try {
+      const response = await fetch('/api/bills/save', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          billId: task.billId,
+          urunler: task.billData.urunler,
+          participants: selectedParticipants
+        })
+      });
+
+      if (response.ok) {
+        toast.success('Fatura başarıyla kaydedildi!');
+        setEditingTaskId(null);
+      } else {
+        toast.error('Kaydetme hatası');
+      }
+    } catch (error) {
+      toast.error('Bağlantı hatası');
+    }
   };
 
   const handleManualSubmit = async (e: React.FormEvent) => {
@@ -411,6 +537,139 @@ const BillUploadPage: React.FC = () => {
                               />
                             </div>
 
+                            {task.status === 'tamamlandı' && task.billData && (
+                              <div className="mt-4 border-t pt-4">
+                                <div className="flex items-center justify-between mb-3">
+                                  <h4 className="text-sm font-bold text-gray-900">📋 Fatura Detayları</h4>
+                                  <div className="flex gap-2">
+                                    {editingTaskId === task.id ? (
+                                      <>
+                                        <button
+                                          onClick={() => saveBillChanges(task.id)}
+                                          className="bg-green-100 hover:bg-green-200 text-green-700 text-xs font-bold py-1 px-3 rounded-lg"
+                                        >
+                                          💾 Kaydet
+                                        </button>
+                                        <button
+                                          onClick={() => setEditingTaskId(null)}
+                                          className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold py-1 px-3 rounded-lg"
+                                        >
+                                          ❌ İptal
+                                        </button>
+                                      </>
+                                    ) : (
+                                      <button
+                                        onClick={() => setEditingTaskId(task.id)}
+                                        className="bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs font-bold py-1 px-3 rounded-lg"
+                                      >
+                                        ✏️ Düzenle
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="bg-gray-50 rounded-lg p-3 mb-3">
+                                  <div className="grid grid-cols-2 gap-2 text-xs">
+                                    <div><strong>Market:</strong> {task.billData.market_adi}</div>
+                                    <div><strong>Tarih:</strong> {formatDate(task.billData.tarih)}</div>
+                                    <div className="col-span-2"><strong>Toplam:</strong> ₺{task.billData.toplam_tutar.toFixed(2)}</div>
+                                  </div>
+                                </div>
+
+                                {editingTaskId === task.id && (
+                                  <div className="mb-4 bg-blue-50 rounded-lg p-3">
+                                    <h5 className="text-xs font-bold text-blue-800 mb-2">👥 Katılımcıları Seç:</h5>
+                                    <div className="grid grid-cols-2 gap-2">
+                                      {allUsers.map((u) => (
+                                        <label key={u._id} className="flex items-center gap-2 text-xs">
+                                          <input
+                                            type="checkbox"
+                                            checked={selectedParticipants.includes(u._id)}
+                                            onChange={() => toggleParticipant(u._id)}
+                                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                          />
+                                          <span>{u.name}</span>
+                                        </label>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <h5 className="text-xs font-bold text-gray-700">🛒 Ürünler ({task.billData.urunler.length})</h5>
+                                    {editingTaskId === task.id && (
+                                      <button
+                                        onClick={() => addTaskProduct(task.id)}
+                                        className="bg-green-100 hover:bg-green-200 text-green-700 text-xs py-1 px-2 rounded"
+                                      >
+                                        + Ekle
+                                      </button>
+                                    )}
+                                  </div>
+                                  <div className="max-h-48 overflow-y-auto space-y-2">
+                                    {task.billData.urunler.map((urun, idx) => (
+                                      <div key={idx} className={`p-2 rounded border ${urun.isPersonal ? 'bg-purple-50 border-purple-200' : 'bg-gray-50 border-gray-200'}`}>
+                                        {editingTaskId === task.id ? (
+                                          <div className="space-y-2">
+                                            <div className="flex gap-2">
+                                              <input
+                                                type="text"
+                                                value={urun.ad}
+                                                onChange={(e) => updateTaskProduct(task.id, idx, 'ad', e.target.value)}
+                                                className="flex-1 text-xs px-2 py-1 border rounded"
+                                              />
+                                              <input
+                                                type="number"
+                                                step="0.01"
+                                                value={urun.fiyat}
+                                                onChange={(e) => updateTaskProduct(task.id, idx, 'fiyat', parseFloat(e.target.value) || 0)}
+                                                className="w-16 text-xs px-2 py-1 border rounded"
+                                              />
+                                              <button
+                                                onClick={() => removeTaskProduct(task.id, idx)}
+                                                className="text-red-600 hover:bg-red-100 px-2 py-1 rounded"
+                                              >
+                                                🗑️
+                                              </button>
+                                            </div>
+                                            <div className="flex gap-2">
+                                              <button
+                                                onClick={() => updateTaskProduct(task.id, idx, 'fiyat', Math.max(0, urun.fiyat + 0.5))}
+                                                className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded"
+                                              >
+                                                +0.5₺
+                                              </button>
+                                              <button
+                                                onClick={() => updateTaskProduct(task.id, idx, 'fiyat', Math.max(0, urun.fiyat - 0.5))}
+                                                className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded"
+                                              >
+                                                -0.5₺
+                                              </button>
+                                              <button
+                                                onClick={() => updateTaskProduct(task.id, idx, 'isPersonal', !urun.isPersonal)}
+                                                className={`text-xs px-2 py-1 rounded ${urun.isPersonal ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700'}`}
+                                              >
+                                                {urun.isPersonal ? '👤 Kişisel' : '👥 Ortak'}
+                                              </button>
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <div className="flex justify-between items-center">
+                                            <div>
+                                              <span className="text-xs font-medium">{urun.ad}</span>
+                                              {urun.isPersonal && <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-1 rounded">👤</span>}
+                                            </div>
+                                            <span className="text-xs font-bold">₺{urun.fiyat.toFixed(2)}</span>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
                             <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                               {task.billId && (
                                 <Button
@@ -419,7 +678,7 @@ const BillUploadPage: React.FC = () => {
                                   variant="primary"
                                   className="text-xs"
                                 >
-                                  Detayları Gör
+                                  Detay Sayfası
                                 </Button>
                               )}
 
@@ -436,7 +695,7 @@ const BillUploadPage: React.FC = () => {
                                   rel="noopener noreferrer"
                                   className="text-xs text-blue-600 hover:underline"
                                 >
-                                  Orijinal resmi aç
+                                  Orijinal Resim
                                 </a>
                               )}
                             </div>

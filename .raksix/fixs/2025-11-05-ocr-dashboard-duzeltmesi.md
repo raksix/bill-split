@@ -16,3 +16,9 @@
 - src/pages/dashboard.tsx
 - src/pages/bills/upload.tsx
 - src/pages/bills/[id].tsx
+
+## Ek Düzeltmeler (3 Kasım 2025)
+- Otomatik yönlendirme kaldırıldı, upload sayfasında inline düzenleme eklendi
+- Fatura yüklendikten sonra aynı sayfada ürünleri düzenleyebilme, katılımcı seçme, kişisel/ortak ayarlama özellikleri
+- Tarih formatı düzeltildi: ISO string (2025-10-04T21:00:00.000Z) → Türkçe format (04.10.2025)
+- Dashboard loading spinner başlangıç durumu false yapıldı, sadece veri çekerken true oluyor

@@ -187,6 +187,18 @@ const BillDetailPage: React.FC = () => {
     }
   };
 
+  const formatDate = (dateString: string): string => {
+    try {
+      const date = new Date(dateString);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${day}.${month}.${year}`;
+    } catch (error) {
+      return dateString;
+    }
+  };
+
   const canEditOrDelete = Boolean(
     user &&
     bill &&
@@ -235,7 +247,7 @@ const BillDetailPage: React.FC = () => {
                   </h1>
                 </div>
                 <p className="text-blue-100 text-base sm:text-lg font-medium">
-                  {bill.tarih} tarihli fatura
+                  {formatDate(bill.tarih)} tarihli fatura
                 </p>
               </div>
               <div className="flex items-center gap-3">
@@ -353,7 +365,7 @@ const BillDetailPage: React.FC = () => {
                   />
                 ) : (
                   <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200">
-                    <p className="text-gray-900">{bill.tarih}</p>
+                    <p className="text-gray-900">{formatDate(bill.tarih)}</p>
                   </div>
                 )}
               </div>

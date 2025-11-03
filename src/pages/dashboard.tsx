@@ -23,7 +23,7 @@ const DashboardPage: React.FC = () => {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [balance, setBalance] = useState<BalanceData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -66,6 +66,9 @@ const DashboardPage: React.FC = () => {
     let intervalId: ReturnType<typeof setInterval> | undefined;
 
     const startPolling = async () => {
+      if (isMountedRef.current) {
+        setLoading(true);
+      }
       await fetchBalance();
       intervalId = setInterval(fetchBalance, 15000);
     };
