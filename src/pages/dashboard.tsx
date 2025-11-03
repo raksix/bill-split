@@ -58,7 +58,6 @@ const DashboardPage: React.FC = () => {
     }
 
     if (!user) {
-      setLoading(false);
       router.push('/login');
       return;
     }

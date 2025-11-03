@@ -4,3 +4,4 @@
 - [x] Upload sayfasında inline düzenleme özelliği ekle
 - [x] Tarih formatını düzelt (2025-10-04T21:00:00.000Z → 04.10.2025)
 - [x] Dashboard loading spinner sorunu çöz
+- [x] Navbar'dan dashboard'a geçişte spinner sorunu çöz
