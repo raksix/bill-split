@@ -77,7 +77,7 @@ const DebtsPage: React.FC = () => {
           unpaidDebts: (apiResponse.data?.myDebts || []).map((debt: any) => ({
             _id: debt.transactionId,
             amount: debt.amount,
-            billId: debt.billId || { market_adi: 'Bilinmiyor', tarih: '', toplam_tutar: 0 },
+            billId: debt.billId, // Artık API'den populate edilmiş olarak geliyor
             fromUser: { name: 'Ben', username: user?.username || '' },
             toUser: debt.creditor || { name: 'Bilinmiyor', username: '' },
             isPaid: false,
@@ -86,7 +86,7 @@ const DebtsPage: React.FC = () => {
           unpaidCredits: (apiResponse.data?.debtsToMe || []).map((credit: any) => ({
             _id: credit.transactionId,
             amount: credit.amount,
-            billId: credit.billId || { market_adi: 'Bilinmiyor', tarih: '', toplam_tutar: 0 },
+            billId: credit.billId, // Artık API'den populate edilmiş olarak geliyor
             fromUser: credit.debtor || { name: 'Bilinmiyor', username: '' },
             toUser: { name: user?.name || 'Ben', username: user?.username || '' },
             isPaid: false,

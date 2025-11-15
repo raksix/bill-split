@@ -21,6 +21,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { billId, urunler, participants } = req.body;
 
+    console.log('💾 Bill save request:', {
+      billId,
+      urunlerCount: urunler?.length,
+      participantsCount: participants?.length,
+      participants,
+      currentUserId: currentUser.userId
+    });
+
     if (!billId || !urunler || !participants) {
       return res.status(400).json({ message: 'Eksik bilgi' });
     }
@@ -59,7 +67,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }));
 
       if (transactions.length > 0) {
+        console.log('💰 Creating transactions:', transactions.map(t => ({
+          from: t.fromUser,
+          to: t.toUser, 
+          amount: t.amount
+        })));
         await Transaction.insertMany(transactions);
+      } else {
+        console.log('⚠️ No transactions created - participants:', participants.length, 'sharedTotal:', sharedTotal);
       }
     }
 

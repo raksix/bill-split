@@ -31,7 +31,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         { toUser: userId }    // Kullanıcıya borçlu olanlar
       ],
       isPaid: false
-    }).populate('fromUser toUser', 'name email');
+    }).populate('fromUser toUser', 'name email')
+      .populate('billId', 'market_adi tarih toplam_tutar');
 
     console.log(`📊 Found ${allTransactions.length} unpaid transactions`);
 
@@ -49,7 +50,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const transactionData: any = {
         id: transaction._id,
         amount: transaction.amount,
-        billId: transaction.billId,
+        billId: {
+          _id: (transaction.billId as any)?._id,
+          market_adi: (transaction.billId as any)?.market_adi || 'Bilinmiyor',
+          tarih: (transaction.billId as any)?.tarih || '',
+          toplam_tutar: (transaction.billId as any)?.toplam_tutar || 0
+        },
         createdAt: transaction.createdAt,
         type: transaction.type || 'debt',
         fromUser: {
