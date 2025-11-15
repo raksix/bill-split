@@ -59,6 +59,18 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
     const { id } = req.query;
     const { market_adi, tarih, toplam_tutar, urunler, participants } = req.body;
 
+    console.log('📝 Bill detail PUT request:', {
+      billId: id,
+      market_adi,
+      tarih,
+      toplam_tutar,
+      urunlerCount: urunler?.length,
+      participantsCount: participants?.length,
+      participants,
+      urunler: urunler?.map((u: any) => ({ urun_adi: u.urun_adi, fiyat: u.fiyat, isPersonal: u.isPersonal })),
+      currentUserId: currentUser.userId
+    });
+
     if (!id || typeof id !== 'string') {
       return res.status(400).json({ message: 'Geçersiz fatura ID' });
     }

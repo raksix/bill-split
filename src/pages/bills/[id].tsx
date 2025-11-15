@@ -79,12 +79,29 @@ const BillDetailPage: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         setBill(data.bill);
+        
+        // Participants'ı al ve fatura sahibinin dahil olduğundan emin ol
+        const existingParticipants = data.bill.participants.map((p: any) => p._id);
+        const billOwnerId = data.bill.uploadedBy._id;
+        const finalParticipants = existingParticipants.includes(billOwnerId) 
+          ? existingParticipants 
+          : [...existingParticipants, billOwnerId];
+
         setEditForm({
           market_adi: data.bill.market_adi,
           tarih: data.bill.tarih,
           toplam_tutar: data.bill.toplam_tutar,
           urunler: data.bill.urunler,
-          participants: data.bill.participants.map((p: any) => p._id)
+          participants: finalParticipants
+        });
+
+        console.log('📄 Fatura yüklendi:', {
+          billId: data.bill._id,
+          isManual: data.bill.isManual,
+          uploadedBy: data.bill.uploadedBy._id,
+          originalParticipants: existingParticipants,
+          finalParticipants,
+          urunlerCount: data.bill.urunler?.length
         });
       } else {
         toast.error('Fatura bulunamadı');
@@ -105,26 +122,48 @@ const BillDetailPage: React.FC = () => {
       // Calculate new total based on products
       const newTotal = editForm.urunler.reduce((sum, item) => sum + item.fiyat, 0);
       
+      // Ürünlere isPersonal ekle (eğer yoksa)
+      const processedUrunler = editForm.urunler.map(item => ({
+        ...item,
+        isPersonal: item.isPersonal || false // Varsayılan olarak paylaşılan
+      }));
+
+      const requestData = {
+        ...editForm,
+        urunler: processedUrunler,
+        toplam_tutar: newTotal
+      };
+
+      console.log('🔄 Fatura düzenleme isteği:', {
+        billId: id,
+        participantsCount: editForm.participants.length,
+        participants: editForm.participants,
+        urunlerCount: processedUrunler.length,
+        sharedItems: processedUrunler.filter(item => !item.isPersonal).length,
+        sharedTotal: processedUrunler.filter(item => !item.isPersonal).reduce((sum, item) => sum + item.fiyat, 0),
+        requestData
+      });
+      
       const response = await fetch(`/api/bills/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...editForm,
-          toplam_tutar: newTotal
-        }),
+        body: JSON.stringify(requestData),
       });
 
       if (response.ok) {
         const data = await response.json();
         setBill(data.bill);
         setIsEditing(false);
-        toast.success('Fatura başarıyla güncellendi');
+        toast.success('Fatura başarıyla güncellendi ve transaction\'lar oluşturuldu');
       } else {
-        toast.error('Fatura güncellenirken hata oluştu');
+        const errorData = await response.json();
+        console.error('API Error:', errorData);
+        toast.error('Fatura güncellenirken hata oluştu: ' + (errorData.message || 'Bilinmeyen hata'));
       }
     } catch (error) {
+      console.error('Network Error:', error);
       toast.error('Bağlantı hatası');
     }
   };
@@ -154,6 +193,21 @@ const BillDetailPage: React.FC = () => {
   };
 
   const toggleParticipant = (userId: string) => {
+    // Fatura sahibi çıkarılamaz
+    if (userId === bill?.uploadedBy._id) {
+      if (!editForm.participants.includes(userId)) {
+        // Fatura sahibi yoksa ekle
+        setEditForm({
+          ...editForm,
+          participants: [...editForm.participants, userId]
+        });
+      } else {
+        // Fatura sahibi varsa çıkarma girişiminde uyar
+        toast.error('Fatura sahibi katılımcılardan çıkarılamaz');
+      }
+      return;
+    }
+
     const isSelected = editForm.participants.includes(userId);
     const newParticipants = isSelected 
       ? editForm.participants.filter(id => id !== userId)
