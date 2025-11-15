@@ -91,13 +91,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     await connectToDatabase();
 
-    // Format products
+    // Format products - diğer API'lerle uyumlu olması için urun_adi kullan
     const formattedProducts = urunler.map(product => ({
-      ad: product.ad.trim(),
+      urun_adi: product.ad.trim(), // urun_adi formatına çevir
       fiyat: Number(product.fiyat),
       miktar: product.miktar || 1,
       birim: product.birim || 'adet',
-      toplam: Number(product.fiyat) * (product.miktar || 1)
+      toplam: Number(product.fiyat) * (product.miktar || 1),
+      isPersonal: false // Manuel eklenen ürünler varsayılan olarak paylaşılan
     }));
 
     // Manuel fatura oluştur
