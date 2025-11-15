@@ -116,20 +116,32 @@ const DebtsPage: React.FC = () => {
             isPaid: false,
             createdAt: credit.createdAt
           })),
-          paidTransactions: (apiResponse.data?.paidTransactions || []).map((paid: any) => ({
-            _id: paid.transactionId,
-            amount: paid.amount,
-            isPaid: paid.isPaid,
-            paidAt: paid.paidAt,
-            billId: paid.billId,
-            fromUser: paid.isMyPayment 
-              ? { _id: user?.userId || '', name: 'Ben', username: user?.username || '' }
-              : paid.debtor,
-            toUser: paid.isMyPayment 
-              ? paid.creditor 
-              : { _id: user?.userId || '', name: 'Ben', username: user?.username || '' },
-            createdAt: paid.createdAt
-          }))
+          paidTransactions: (apiResponse.data?.paidTransactions || []).map((paid: any) => {
+            console.log('🔍 Processing paid transaction:', {
+              transactionId: paid.transactionId,
+              amount: paid.amount,
+              isMyPayment: paid.isMyPayment,
+              creditor: paid.creditor,
+              debtor: paid.debtor,
+              currentUserId: user?.userId
+            });
+            
+            return {
+              _id: paid.transactionId,
+              amount: paid.amount,
+              isPaid: paid.isPaid,
+              paidAt: paid.paidAt,
+              billId: paid.billId,
+              fromUser: paid.isMyPayment 
+                ? { _id: user?.userId || '', name: 'Ben', username: user?.username || '' }
+                : paid.debtor,
+              toUser: paid.isMyPayment 
+                ? paid.creditor 
+                : { _id: user?.userId || '', name: 'Ben', username: user?.username || '' },
+              isMyPayment: paid.isMyPayment, // Bu bilgiyi saklayalım
+              createdAt: paid.createdAt
+            };
+          })
         };
         console.log('📊 Debt data transformed:', {
           originalResponse: apiResponse,
@@ -228,6 +240,28 @@ const DebtsPage: React.FC = () => {
       currentDebt: myDebtToThisPerson,
       theirDebt: theirDebtToMe
     });
+  };
+
+  const markAsReceived = async (transactionId: string) => {
+    try {
+      const response = await fetch('/api/transactions/mark-received', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ transactionId }),
+      });
+
+      if (response.ok) {
+        toast.success('Ödeme alındı olarak işaretlendi');
+        fetchDebts(); // Refresh data
+      } else {
+        const error = await response.json();
+        toast.error(error.message || 'İşlem başarısız');
+      }
+    } catch (error) {
+      toast.error('Bağlantı hatası');
+    }
   };
 
   const handleBulkPayment = async () => {
@@ -546,8 +580,17 @@ const DebtsPage: React.FC = () => {
                       </div>
                       <div className="text-right">
                         <p className="text-2xl font-black text-green-600">₺{transaction.amount.toFixed(2)}</p>
-                        <div className="mt-2 bg-orange-100 text-orange-700 text-xs px-3 py-1 rounded-full font-bold">
-                          Ödeme Bekleniyor
+                        <div className="mt-2 space-y-2">
+                          <div className="bg-orange-100 text-orange-700 text-xs px-3 py-1 rounded-full font-bold">
+                            Ödeme Bekleniyor
+                          </div>
+                          <Button
+                            onClick={() => markAsReceived(transaction._id)}
+                            size="sm"
+                            className="bg-linear-to-r from-green-500 to-emerald-500 text-white text-xs w-full"
+                          >
+                            ✅ Ödendi
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -601,9 +644,9 @@ const DebtsPage: React.FC = () => {
                         </div>
                         <div>
                           <h4 className="text-lg font-black text-gray-900">
-                            {user?.userId === transaction.fromUser._id 
-                              ? `${transaction.toUser.name} kişisine ödedim`
-                              : `${transaction.fromUser.name} kişisinden aldım`
+                            {(transaction as any).isMyPayment 
+                              ? `${transaction.toUser.name} kişisine ödeme yaptım`
+                              : `${transaction.fromUser.name} kişisinden ödeme aldım`
                             }
                           </h4>
                           <p className="text-sm text-gray-500">

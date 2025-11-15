@@ -12,6 +12,8 @@
 - [x] **BUG**: Toplu ödemede borç gözükmüyor - user ID mapping düzeltildi
 - [x] **BUG**: "Tutar girin" hatası - validation düzeltildi ve debug eklendi
 - [x] **FEATURE**: Ödenen borçlar geçmiş sekmesinde görünüyor
+- [x] **BUG**: Geçmişte "Ben kişisine ödedim" düzeltildi - doğru kullanıcı adları gösteriliyor
+- [x] **FEATURE**: Alacaklar kısmına "Ödendi" butonu eklendi
 
 ## Özellikler
 
@@ -41,12 +43,17 @@
 3. Karşılıklı borç ile toplu ödeme + mahsup
 4. Fazla tutar girme (iade edilir)
 
-## Debug İşlemleri
+## Son Düzeltmeler
 
 ### Düzeltilen Hatalar:
 1. **User ID Mapping**: `unpaidDebts` ve `unpaidCredits` mapping'inde `user.userId` kullanılıyor artık
 2. **API Debugging**: Bulk payment API'sinde detaylı debug logları eklendi
 3. **UI Debugging**: Modal açılışında borç hesaplama logları eklendi
+4. **Geçmiş Display**: "Ben kişisine ödedim" → "X kişisine ödeme yaptım" düzeltildi
+5. **Mark as Received**: Alacaklılar borçları "ödendi" olarak işaretleyebilir
+
+### Yeni API Endpoints:
+- `/api/transactions/mark-received`: Alacaklı borcu ödendi olarak işaretle
 
 ### Console Logları:
 - `📊 Debt data transformed`: Debt verisi dönüşüm logları
