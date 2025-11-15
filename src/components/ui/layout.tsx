@@ -131,8 +131,8 @@ const Layout: React.FC<LayoutProps> = ({ children, title = 'Bill Split' }) => {
         </div>
       </nav>
 
-      {/* Main Content with Better Spacing */}
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-8 max-w-7xl">
+      {/* Main Content with Better Spacing - Fixed Mobile Bottom Padding */}
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-32 md:pb-8 max-w-7xl">
         {title && (
           <div className="mb-8">
             <h2 className="text-3xl lg:text-4xl font-black text-gray-900 mb-2">{title}</h2>
@@ -142,27 +142,9 @@ const Layout: React.FC<LayoutProps> = ({ children, title = 'Bill Split' }) => {
         {children}
       </main>
 
-      {/* Mobile Bottom Navigation */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-gray-200/50 shadow-2xl z-50">
-        {/* Mobile User Info */}
-        <div className="flex items-center justify-center py-2 px-4 border-b border-gray-200/30">
-          <div className="flex items-center gap-2 bg-white/70 backdrop-blur-sm rounded-2xl px-3 py-1.5 shadow-sm">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-black text-xs shadow-md ${
-              user?.role === 'admin' 
-                ? 'bg-linear-to-br from-purple-600 to-pink-600' 
-                : 'bg-linear-to-br from-blue-600 to-cyan-600'
-            }`}>
-              {(user?.name || user?.username)?.charAt(0).toUpperCase()}
-            </div>
-            <div className="text-left">
-              <p className="text-xs font-bold text-gray-800">{user?.name || user?.username}</p>
-              <p className="text-xs text-gray-500 font-medium">
-                {user?.role === 'admin' ? '👑' : '👤'}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="flex justify-around items-center py-2 px-4">
+      {/* Enhanced Mobile Bottom Navigation */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-gradient-to-t from-white via-white/98 to-white/95 backdrop-blur-xl border-t border-gray-200/60 shadow-2xl z-50">
+        <div className="flex justify-around items-center py-3 px-4">
           {navigation.map((item, index) => {
             const isActive = router.pathname === item.href;
             const icons = user?.role === 'admin' 
@@ -185,16 +167,18 @@ const Layout: React.FC<LayoutProps> = ({ children, title = 'Bill Split' }) => {
               <button
                 key={item.href}
                 onClick={() => router.push(item.href)}
-                className={`flex flex-col items-center justify-center py-3 px-2 rounded-2xl transition-all duration-300 min-w-0 flex-1 ${
+                className={`group flex flex-col items-center justify-center py-4 px-3 rounded-2xl transition-all duration-300 transform hover:scale-105 min-w-0 flex-1 ${
                   isActive
-                    ? 'bg-linear-to-br from-blue-600 via-purple-600 to-pink-600 text-white shadow-lg transform scale-105'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    ? 'bg-linear-to-br from-blue-600 via-purple-600 to-pink-600 text-white shadow-lg scale-105 border border-white/20'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-linear-to-b hover:from-gray-50 hover:to-gray-100 hover:shadow-md'
                 }`}
               >
-                <div className={`mb-1 ${isActive ? 'animate-pulse' : ''}`}>
+                <div className={`mb-1.5 transition-transform duration-200 ${isActive ? 'animate-pulse scale-110' : 'group-hover:scale-110'}`}>
                   {icons[index]}
                 </div>
-                <span className={`text-xs font-bold truncate max-w-full ${isActive ? 'text-white' : 'text-gray-600'}`}>
+                <span className={`text-xs font-semibold tracking-wide truncate max-w-full transition-colors duration-200 ${
+                  isActive ? 'text-white drop-shadow-sm' : 'text-gray-600 group-hover:text-gray-900'
+                }`}>
                   {item.name}
                 </span>
               </button>
