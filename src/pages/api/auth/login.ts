@@ -38,14 +38,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
     
     const isProd = process.env.NODE_ENV === 'production';
+    const host = req.headers.host || '';
+    const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+    const secureFlag = process.env.COOKIE_SECURE
+      ? process.env.COOKIE_SECURE === 'true'
+      : !isLocalhost;
+
     const cookieMaxAge = process.env.JWT_COOKIE_MAX_AGE
       ? parseInt(process.env.JWT_COOKIE_MAX_AGE, 10)
       : (isProd ? 60 * 60 * 24 * 365 : 60 * 60 * 24 * 365);
 
     const cookie = serialize('token', token, {
       httpOnly: true,
-      secure: isProd,
+      secure: secureFlag,
       sameSite: 'strict',
+      maxAge: cookieMaxAge,
       path: '/',
     });
 

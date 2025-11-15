@@ -7,9 +7,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    const host = req.headers.host || '';
+    const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+    const secureFlag = process.env.COOKIE_SECURE
+      ? process.env.COOKIE_SECURE === 'true'
+      : !isLocalhost;
+
     const cookie = serialize('token', '', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: secureFlag,
       sameSite: 'strict',
       maxAge: -1,
       path: '/',
