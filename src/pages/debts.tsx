@@ -69,8 +69,32 @@ const DebtsPage: React.FC = () => {
     try {
       const response = await fetch('/api/transactions/debts');
       if (response.ok) {
-        const data = await response.json();
-        setDebtData(data);
+        const apiResponse = await response.json();
+        // API'den gelen veriyi client'ın beklediği yapıya dönüştür
+        const transformedData: DebtSummary = {
+          totalDebt: apiResponse.data?.summary?.totalIOwe || 0,
+          totalCredit: apiResponse.data?.summary?.totalOwedToMe || 0,
+          unpaidDebts: (apiResponse.data?.myDebts || []).map((debt: any) => ({
+            _id: debt.transactionId,
+            amount: debt.amount,
+            billId: debt.billId || { market_adi: 'Bilinmiyor', tarih: '', toplam_tutar: 0 },
+            fromUser: { name: 'Ben', username: user?.username || '' },
+            toUser: debt.creditor || { name: 'Bilinmiyor', username: '' },
+            isPaid: false,
+            createdAt: debt.createdAt
+          })),
+          unpaidCredits: (apiResponse.data?.debtsToMe || []).map((credit: any) => ({
+            _id: credit.transactionId,
+            amount: credit.amount,
+            billId: credit.billId || { market_adi: 'Bilinmiyor', tarih: '', toplam_tutar: 0 },
+            fromUser: credit.debtor || { name: 'Bilinmiyor', username: '' },
+            toUser: { name: user?.name || 'Ben', username: user?.username || '' },
+            isPaid: false,
+            createdAt: credit.createdAt
+          })),
+          paidTransactions: []
+        };
+        setDebtData(transformedData);
       } else {
         toast.error('Borç bilgileri alınamadı');
       }
@@ -162,11 +186,11 @@ const DebtsPage: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-white/20 backdrop-blur-lg rounded-2xl p-4 text-center">
                 <p className="text-white/80 text-sm font-bold uppercase tracking-wider mb-1">Toplam Borcum</p>
-                <p className="text-2xl font-black text-red-200">₺{debtData.totalDebt.toFixed(2)}</p>
+                <p className="text-2xl font-black text-red-200">₺{(debtData.totalDebt || 0).toFixed(2)}</p>
               </div>
               <div className="bg-white/20 backdrop-blur-lg rounded-2xl p-4 text-center">
                 <p className="text-white/80 text-sm font-bold uppercase tracking-wider mb-1">Toplam Alacağım</p>
-                <p className="text-2xl font-black text-green-200">₺{debtData.totalCredit.toFixed(2)}</p>
+                <p className="text-2xl font-black text-green-200">₺{(debtData.totalCredit || 0).toFixed(2)}</p>
               </div>
             </div>
           </div>
@@ -255,15 +279,15 @@ const DebtsPage: React.FC = () => {
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                         <div>
                           <p className="text-gray-500 font-bold mb-1">Fatura</p>
-                          <p className="text-gray-900 font-semibold">{transaction.billId.market_adi}</p>
+                          <p className="text-gray-900 font-semibold">{transaction.billId?.market_adi || 'Bilinmiyor'}</p>
                         </div>
                         <div>
                           <p className="text-gray-500 font-bold mb-1">Tarih</p>
-                          <p className="text-gray-900 font-semibold">{transaction.billId.tarih}</p>
+                          <p className="text-gray-900 font-semibold">{transaction.billId?.tarih || '-'}</p>
                         </div>
                         <div>
                           <p className="text-gray-500 font-bold mb-1">Fatura Toplamı</p>
-                          <p className="text-gray-900 font-semibold">₺{transaction.billId.toplam_tutar.toFixed(2)}</p>
+                          <p className="text-gray-900 font-semibold">₺{(transaction.billId?.toplam_tutar || 0).toFixed(2)}</p>
                         </div>
                       </div>
                     </div>
@@ -317,15 +341,15 @@ const DebtsPage: React.FC = () => {
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                         <div>
                           <p className="text-gray-500 font-bold mb-1">Fatura</p>
-                          <p className="text-gray-900 font-semibold">{transaction.billId.market_adi}</p>
+                          <p className="text-gray-900 font-semibold">{transaction.billId?.market_adi || 'Bilinmiyor'}</p>
                         </div>
                         <div>
                           <p className="text-gray-500 font-bold mb-1">Tarih</p>
-                          <p className="text-gray-900 font-semibold">{transaction.billId.tarih}</p>
+                          <p className="text-gray-900 font-semibold">{transaction.billId?.tarih || '-'}</p>
                         </div>
                         <div>
                           <p className="text-gray-500 font-bold mb-1">Fatura Toplamı</p>
-                          <p className="text-gray-900 font-semibold">₺{transaction.billId.toplam_tutar.toFixed(2)}</p>
+                          <p className="text-gray-900 font-semibold">₺{(transaction.billId?.toplam_tutar || 0).toFixed(2)}</p>
                         </div>
                       </div>
                     </div>
@@ -384,15 +408,15 @@ const DebtsPage: React.FC = () => {
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                         <div>
                           <p className="text-gray-500 font-bold mb-1">Fatura</p>
-                          <p className="text-gray-900 font-semibold">{transaction.billId.market_adi}</p>
+                          <p className="text-gray-900 font-semibold">{transaction.billId?.market_adi || 'Bilinmiyor'}</p>
                         </div>
                         <div>
                           <p className="text-gray-500 font-bold mb-1">Fatura Tarihi</p>
-                          <p className="text-gray-900 font-semibold">{transaction.billId.tarih}</p>
+                          <p className="text-gray-900 font-semibold">{transaction.billId?.tarih || '-'}</p>
                         </div>
                         <div>
                           <p className="text-gray-500 font-bold mb-1">Fatura Toplamı</p>
-                          <p className="text-gray-900 font-semibold">₺{transaction.billId.toplam_tutar.toFixed(2)}</p>
+                          <p className="text-gray-900 font-semibold">₺{(transaction.billId?.toplam_tutar || 0).toFixed(2)}</p>
                         </div>
                       </div>
                     </div>
@@ -446,15 +470,15 @@ const DebtsPage: React.FC = () => {
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-500">Market:</span>
-                      <span className="font-semibold">{paymentModal.transaction.billId.market_adi}</span>
+                      <span className="font-semibold">{paymentModal.transaction.billId?.market_adi || 'Bilinmiyor'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">Tarih:</span>
-                      <span className="font-semibold">{paymentModal.transaction.billId.tarih}</span>
+                      <span className="font-semibold">{paymentModal.transaction.billId?.tarih || '-'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">Toplam:</span>
-                      <span className="font-semibold">₺{paymentModal.transaction.billId.toplam_tutar.toFixed(2)}</span>
+                      <span className="font-semibold">₺{(paymentModal.transaction.billId?.toplam_tutar || 0).toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
