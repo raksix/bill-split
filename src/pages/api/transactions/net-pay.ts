@@ -46,14 +46,14 @@ export default async function handler(
 
     try {
       // Bu kullanıcının ödeyeceği borçları al (en eski önce)
-      const myDebts = await Transaction.find({
+      let myDebts = await Transaction.find({
         fromUser: userId,
         toUser: toUserId,
         isPaid: false
       }).sort({ createdAt: 1 });
 
       // Bu kullanıcının alacaklarını al (mahsup için)
-      const myCredits = await Transaction.find({
+      let myCredits = await Transaction.find({
         fromUser: toUserId,
         toUser: userId,
         isPaid: false
@@ -67,88 +67,98 @@ export default async function handler(
         myCreditsCount: myCredits.length
       });
 
-      let remainingAmount = netAmount;
       let nettingAmount = 0;
       let processedTransactions = 0;
 
-      // 1. ADIM: Karşılıklı mahsup işlemi (partial destekli)
-      for (const credit of myCredits) {
-        if (remainingAmount <= 0) break;
+      // AŞAMA 1: Karşılıklı borçları TAM mahsup et (ödeme tutarından bağımsız)
+      const totalMyDebts = myDebts.reduce((s, t) => s + t.amount, 0);
+      const totalMyCredits = myCredits.reduce((s, t) => s + t.amount, 0);
+      let mutualToCancel = Math.min(totalMyDebts, totalMyCredits);
 
-        const mahsupAmount = Math.min(credit.amount, remainingAmount);
-        
-        if (mahsupAmount >= credit.amount) {
-          // Tam mahsup: bu alacağı kapat
-          await Transaction.findByIdAndUpdate(credit._id, {
-            isPaid: true,
-            paidAt: new Date(),
-          });
-        } else if (mahsupAmount > 0) {
-          // Kısmi mahsup: mevcut kaydı ödenen miktarla kapat, kalan için yeni kayıt oluştur
-          const remainingDebt = credit.amount - mahsupAmount;
-
-          await Transaction.findByIdAndUpdate(credit._id, {
-            amount: mahsupAmount,
-            isPaid: true,
-            paidAt: new Date(),
-          });
-
-          const newTransaction = new Transaction({
-            billId: credit.billId,
-            fromUser: credit.fromUser,
-            toUser: credit.toUser,
-            amount: remainingDebt,
-            isPaid: false,
-          });
-          await newTransaction.save();
+      const cancelFromList = async (list: any[], amountToCancel: number) => {
+        let remaining = amountToCancel;
+        for (const t of list) {
+          if (remaining <= 0) break;
+          const use = Math.min(t.amount, remaining);
+          if (use >= t.amount) {
+            await Transaction.findByIdAndUpdate(t._id, {
+              isPaid: true,
+              paidAt: new Date(),
+            });
+          } else if (use > 0) {
+            const leftover = t.amount - use;
+            await Transaction.findByIdAndUpdate(t._id, {
+              amount: use,
+              isPaid: true,
+              paidAt: new Date(),
+            });
+            const newT = new Transaction({
+              billId: t.billId,
+              fromUser: t.fromUser,
+              toUser: t.toUser,
+              amount: leftover,
+              isPaid: false,
+            });
+            await newT.save();
+          }
+          remaining -= use;
+          processedTransactions++;
         }
+        return amountToCancel - remaining;
+      };
 
-        nettingAmount += mahsupAmount;
-        remainingAmount -= mahsupAmount;
-        processedTransactions++;
-
-        console.log(`Mahsup işlemi: ₺${mahsupAmount} - Kalan: ₺${remainingAmount}`);
+      if (mutualToCancel > 0) {
+        // Önce onların bana olan borçlarını kapat
+        const canceledOnCredits = await cancelFromList(myCredits, mutualToCancel);
+        // Aynı tutarı benim borçlarımdan kapat
+        const canceledOnDebts = await cancelFromList(myDebts, canceledOnCredits);
+        nettingAmount += canceledOnDebts; // her iki tarafta da aynı tutar kapanır
+        console.log(`🔄 Tam mahsup tamamlandı: ₺${nettingAmount}`);
       }
 
-      // 2. ADIM: Kalan tutar ile borçları öde (partial destekli)
-      for (const debt of myDebts) {
-        if (remainingAmount <= 0) break;
+      // AŞAMA 2: Net tutarı borçlarıma uygula
+      let remainingAmount = netAmount;
 
-        const paymentAmount = Math.min(debt.amount, remainingAmount);
+      // NetAmount > 0 ise ben borçluyum demek; kalan borçlarımı öde
+      if (remainingAmount > 0) {
+        // Mahsuptan sonra güncel borç listesi
+        myDebts = await Transaction.find({
+          fromUser: userId,
+          toUser: toUserId,
+          isPaid: false,
+        }).sort({ createdAt: 1 });
 
-        if (paymentAmount >= debt.amount) {
-          // Tam ödeme
-          await Transaction.findByIdAndUpdate(debt._id, {
-            isPaid: true,
-            paidAt: new Date(),
-          });
-        } else if (paymentAmount > 0) {
-          // Kısmi ödeme: mevcut kaydı ödenen miktarla kapat, kalan için yeni kayıt oluştur
-          const remainingDebt = debt.amount - paymentAmount;
+        for (const debt of myDebts) {
+          if (remainingAmount <= 0) break;
+          const paymentAmount = Math.min(debt.amount, remainingAmount);
 
-          await Transaction.findByIdAndUpdate(debt._id, {
-            amount: paymentAmount,
-            isPaid: true,
-            paidAt: new Date(),
-          });
-
-          const newTransaction = new Transaction({
-            billId: debt.billId,
-            fromUser: debt.fromUser,
-            toUser: debt.toUser,
-            amount: remainingDebt,
-            isPaid: false,
-          });
-          await newTransaction.save();
+          if (paymentAmount >= debt.amount) {
+            await Transaction.findByIdAndUpdate(debt._id, {
+              isPaid: true,
+              paidAt: new Date(),
+            });
+          } else if (paymentAmount > 0) {
+            const leftover = debt.amount - paymentAmount;
+            await Transaction.findByIdAndUpdate(debt._id, {
+              amount: paymentAmount,
+              isPaid: true,
+              paidAt: new Date(),
+            });
+            const newDebt = new Transaction({
+              billId: debt.billId,
+              fromUser: debt.fromUser,
+              toUser: debt.toUser,
+              amount: leftover,
+              isPaid: false,
+            });
+            await newDebt.save();
+          }
+          remainingAmount -= paymentAmount;
+          processedTransactions++;
         }
-
-        remainingAmount -= paymentAmount;
-        processedTransactions++;
-
-        console.log(`Borç ödeme: ₺${paymentAmount} - Kalan: ₺${remainingAmount}`);
       }
 
-      const paidAmount = netAmount - remainingAmount;
+  const paidAmount = netAmount - Math.max(0, remainingAmount);
 
       console.log('Net ödeme tamamlandı:', {
         netAmount,
