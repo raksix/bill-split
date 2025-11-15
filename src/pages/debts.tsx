@@ -192,11 +192,15 @@ const DebtsPage: React.FC = () => {
       .filter(credit => credit.fromUser._id === toUserId)
       .reduce((sum, credit) => sum + credit.amount, 0) || 0;
 
+    // Net borcu hesapla
+    const netDebt = Math.max(0, myDebtToThisPerson - theirDebtToMe);
+
     console.log('🔍 Bulk payment modal açılıyor:', {
       toUserId,
       toUserName,
       myDebtToThisPerson,
       theirDebtToMe,
+      netDebt,
       unpaidDebts: debtData?.unpaidDebts.length,
       unpaidCredits: debtData?.unpaidCredits.length,
       myDebts: debtData?.unpaidDebts.map(d => ({ to: d.toUser._id, amount: d.amount })),
@@ -207,7 +211,7 @@ const DebtsPage: React.FC = () => {
       isOpen: true,
       toUserId,
       toUserName,
-      totalAmount: myDebtToThisPerson.toString(),
+      totalAmount: netDebt.toString(), // Net borç değeri input'ta görünsün
       currentDebt: myDebtToThisPerson,
       theirDebt: theirDebtToMe
     });
@@ -746,7 +750,23 @@ const DebtsPage: React.FC = () => {
                     />
                     <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 font-bold">₺</span>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
+                  
+                  {/* Net Borç Bilgisi */}
+                  <div className="mt-2 p-3 bg-green-50 rounded-xl border border-green-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-bold text-green-700">Net borcunuz:</span>
+                      <span className="text-lg font-black text-green-600">
+                        ₺{Math.max(0, bulkPaymentModal.currentDebt - bulkPaymentModal.theirDebt).toFixed(2)}
+                      </span>
+                    </div>
+                    {bulkPaymentModal.theirDebt > 0 && (
+                      <p className="text-xs text-green-600 mt-1">
+                        Karşılıklı mahsup ile ₺{bulkPaymentModal.theirDebt.toFixed(2)} düşüldü
+                      </p>
+                    )}
+                  </div>
+                  
+                  <p className="text-xs text-gray-500 mt-2">
                     İstediğiniz tutarı girebilirsiniz. Sistem önce karşılıklı mahsup yapar, sonra borçlarınızı öder.
                   </p>
                 </div>
