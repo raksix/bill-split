@@ -32,8 +32,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         { toUser: userId }    // Kullanıcıya borçlu olanlar
       ],
       isPaid: false
-    }).populate('fromUser toUser', 'name email')
-      .populate('billId', 'market_adi tarih toplam_tutar');
+    }).populate('fromUser toUser', 'name email username')
+      .populate({
+        path: 'billId',
+        select: 'market_adi tarih toplam_tutar userId uploadedBy',
+        populate: [
+          { path: 'userId', select: 'name username email' },
+          { path: 'uploadedBy', select: 'name username email' }
+        ]
+      });
 
     // Kullanıcının ödenen transaction'larını al (geçmiş için)
     const paidTransactions = await Transaction.find({
@@ -42,8 +49,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         { toUser: userId }    // Kullanıcıya borçlu olanlar
       ],
       isPaid: true
-    }).populate('fromUser toUser', 'name email')
-      .populate('billId', 'market_adi tarih toplam_tutar')
+    }).populate('fromUser toUser', 'name email username')
+      .populate({
+        path: 'billId',
+        select: 'market_adi tarih toplam_tutar userId uploadedBy',
+        populate: [
+          { path: 'userId', select: 'name username email' },
+          { path: 'uploadedBy', select: 'name username email' }
+        ]
+      })
       .sort({ paidAt: -1 })
       .limit(50); // Son 50 ödeme
 
@@ -71,16 +85,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           tarih: (transaction.billId as any)?.tarih || '',
           toplam_tutar: (transaction.billId as any)?.toplam_tutar || 0
         },
+        billOwner: (() => {
+          const bill: any = transaction.billId;
+          const owner = bill?.userId || bill?.uploadedBy;
+          return owner ? {
+            id: owner._id,
+            name: owner.name || 'Bilinmiyor',
+            username: owner.username || '',
+            email: owner.email || ''
+          } : null;
+        })(),
         createdAt: transaction.createdAt,
         type: transaction.type || 'debt',
         fromUser: {
           id: (transaction.fromUser as any)._id,
           name: (transaction.fromUser as any).name || 'Bilinmeyen',
+          username: (transaction.fromUser as any).username || '',
           email: (transaction.fromUser as any).email || ''
         },
         toUser: {
           id: (transaction.toUser as any)._id,
           name: (transaction.toUser as any).name || 'Bilinmeyen',
+          username: (transaction.toUser as any).username || '',
           email: (transaction.toUser as any).email || ''
         }
       };
@@ -169,7 +195,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         creditor: debt.creditor,
         description: debt.description,
         createdAt: debt.createdAt,
-        billId: debt.billId
+        billId: debt.billId,
+        billOwner: debt.billOwner || null
       })),
       
       debtsToMe: debts.owedToMe.map(debt => ({
@@ -178,7 +205,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         debtor: debt.debtor,
         description: debt.description,
         createdAt: debt.createdAt,
-        billId: debt.billId
+        billId: debt.billId,
+        billOwner: debt.billOwner || null
       })),
       
       debtSummaryByUser: debtSummary.sort((a, b) => Math.abs(b.netAmount) - Math.abs(a.netAmount)),
