@@ -37,10 +37,10 @@ export default async function handler(
 
     await connectDB();
 
-    const { toUserId, netAmount }: NetPayRequest = req.body;
+  const { toUserId, netAmount }: NetPayRequest = req.body;
 
-    // Validasyon
-    if (!toUserId || !netAmount || netAmount <= 0) {
+    // Validasyon: netAmount 0 olabilir (sadece mahsup)
+    if (!toUserId || netAmount == null || netAmount < 0) {
       return res.status(400).json({ message: 'Geçersiz parametreler' });
     }
 
@@ -71,8 +71,8 @@ export default async function handler(
       let processedTransactions = 0;
 
       // AŞAMA 1: Karşılıklı borçları TAM mahsup et (ödeme tutarından bağımsız)
-      const totalMyDebts = myDebts.reduce((s, t) => s + t.amount, 0);
-      const totalMyCredits = myCredits.reduce((s, t) => s + t.amount, 0);
+  const totalMyDebts = myDebts.reduce((s, t) => s + t.amount, 0);
+  const totalMyCredits = myCredits.reduce((s, t) => s + t.amount, 0);
       let mutualToCancel = Math.min(totalMyDebts, totalMyCredits);
 
       const cancelFromList = async (list: any[], amountToCancel: number) => {
@@ -158,7 +158,7 @@ export default async function handler(
         }
       }
 
-  const paidAmount = netAmount - Math.max(0, remainingAmount);
+      const paidAmount = netAmount - Math.max(0, remainingAmount);
 
       console.log('Net ödeme tamamlandı:', {
         netAmount,
@@ -170,7 +170,7 @@ export default async function handler(
 
       return res.status(200).json({
         success: true,
-        message: 'Net ödeme başarıyla tamamlandı',
+        message: netAmount > 0 ? 'Net ödeme başarıyla tamamlandı' : 'Karşılıklı mahsup başarıyla tamamlandı',
         paidAmount,
         nettingAmount,
         transactionsProcessed: processedTransactions

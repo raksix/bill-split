@@ -253,13 +253,64 @@ const DebtsPage: React.FC = () => {
     const netDebt = calculateNetDebt(toUserId);
     console.log('📊 Net borç hesaplaması:', netDebt);
 
-    if (netDebt.netAmount <= 0) {
-      toast.error('Net ödeme yapılacak borç bulunamadı');
+    // Net tutar 0 ise: karşılıklı borçlar eşit; tek tıkla mahsup ile kapatalım
+    if (netDebt.netAmount === 0) {
+      const ok = window.confirm(
+        `${toUserName} ile karşılıklı borçlarınız eşit görünüyor.\n\n` +
+        `• Sizin toplam borcunuz: ₺${netDebt.totalIOwe?.toFixed(2) || '0.00'}\n` +
+        `• Onların size borcu: ₺${netDebt.totalTheyOwe?.toFixed(2) || '0.00'}\n\n` +
+        `Karşılıklı mahsup yaparak her iki tarafın borçlarını kapatalım mı?`
+      );
+      if (!ok) return;
+
+      try {
+        const response = await fetch('/api/transactions/net-pay', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ toUserId, netAmount: 0 })
+        });
+        if (response.ok) {
+          const result = await response.json();
+          toast.success(`Karşılıklı borçlar başarıyla mahsup edildi`);
+          fetchDebts();
+        } else {
+          const error = await response.json();
+          toast.error(error.message || 'Mahsup işlemi başarısız');
+        }
+      } catch (e) {
+        console.error('Mahsup hatası:', e);
+        toast.error('Bağlantı hatası');
+      }
       return;
     }
 
     if (!netDebt.iOwe) {
-      toast.success(`${toUserName} size ₺${netDebt.netAmount.toFixed(2)} borçlu. Siz ödeme yapmayacaksınız.`);
+      // Net tutar > 0 ve ben borçlu değilsem: ödeme yapmam, istenirse sadece mahsup yapılabilir
+      const ok = window.confirm(
+        `${toUserName} size ₺${netDebt.netAmount.toFixed(2)} borçlu.\n` +
+        `İsterseniz önce karşılıklı borçları mahsup edebiliriz. Devam edilsin mi?`
+      );
+      if (ok) {
+        try {
+          const response = await fetch('/api/transactions/net-pay', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ toUserId, netAmount: 0 })
+          });
+          if (response.ok) {
+            toast.success('Karşılıklı borçlar mahsup edildi');
+            fetchDebts();
+          } else {
+            const error = await response.json();
+            toast.error(error.message || 'Mahsup işlemi başarısız');
+          }
+        } catch (e) {
+          console.error('Mahsup hatası:', e);
+          toast.error('Bağlantı hatası');
+        }
+      } else {
+        toast('İşlem iptal edildi');
+      }
       return;
     }
 
