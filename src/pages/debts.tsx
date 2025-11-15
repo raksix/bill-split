@@ -116,7 +116,20 @@ const DebtsPage: React.FC = () => {
             isPaid: false,
             createdAt: credit.createdAt
           })),
-          paidTransactions: []
+          paidTransactions: (apiResponse.data?.paidTransactions || []).map((paid: any) => ({
+            _id: paid.transactionId,
+            amount: paid.amount,
+            isPaid: paid.isPaid,
+            paidAt: paid.paidAt,
+            billId: paid.billId,
+            fromUser: paid.isMyPayment 
+              ? { _id: user?.userId || '', name: 'Ben', username: user?.username || '' }
+              : paid.debtor,
+            toUser: paid.isMyPayment 
+              ? paid.creditor 
+              : { _id: user?.userId || '', name: 'Ben', username: user?.username || '' },
+            createdAt: paid.createdAt
+          }))
         };
         console.log('📊 Debt data transformed:', {
           originalResponse: apiResponse,
@@ -218,13 +231,25 @@ const DebtsPage: React.FC = () => {
   };
 
   const handleBulkPayment = async () => {
-    if (!bulkPaymentModal.toUserId || !bulkPaymentModal.totalAmount) {
+    console.log('🔄 handleBulkPayment çağrıldı:', {
+      toUserId: bulkPaymentModal.toUserId,
+      totalAmount: bulkPaymentModal.totalAmount,
+      totalAmountType: typeof bulkPaymentModal.totalAmount,
+      totalAmountLength: bulkPaymentModal.totalAmount?.length
+    });
+
+    if (!bulkPaymentModal.toUserId) {
+      toast.error('Kullanıcı seçilmedi');
+      return;
+    }
+
+    if (!bulkPaymentModal.totalAmount || bulkPaymentModal.totalAmount.trim() === '') {
       toast.error('Lütfen ödeme tutarını girin');
       return;
     }
 
     const paymentAmount = parseFloat(bulkPaymentModal.totalAmount);
-    if (paymentAmount <= 0) {
+    if (isNaN(paymentAmount) || paymentAmount <= 0) {
       toast.error('Geçersiz ödeme tutarı');
       return;
     }

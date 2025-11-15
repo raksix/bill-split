@@ -25,8 +25,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log(`🔍 Fetching debts for user: ${userId}`);
 
-    // Kullanıcının tüm transaction'larını al (sadece ödenmeyenler)
-    const allTransactions = await Transaction.find({
+    // Kullanıcının tüm transaction'larını al (ödenmeyenler)
+    const unpaidTransactions = await Transaction.find({
       $or: [
         { fromUser: userId }, // Kullanıcının borçları
         { toUser: userId }    // Kullanıcıya borçlu olanlar
@@ -34,6 +34,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       isPaid: false
     }).populate('fromUser toUser', 'name email')
       .populate('billId', 'market_adi tarih toplam_tutar');
+
+    // Kullanıcının ödenen transaction'larını al (geçmiş için)
+    const paidTransactions = await Transaction.find({
+      $or: [
+        { fromUser: userId }, // Kullanıcının borçları
+        { toUser: userId }    // Kullanıcıya borçlu olanlar
+      ],
+      isPaid: true
+    }).populate('fromUser toUser', 'name email')
+      .populate('billId', 'market_adi tarih toplam_tutar')
+      .sort({ paidAt: -1 })
+      .limit(50); // Son 50 ödeme
+
+    const allTransactions = unpaidTransactions;
 
     console.log(`📊 Found ${allTransactions.length} unpaid transactions`);
 
@@ -176,7 +190,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         evenUsers: debtSummary.filter(s => s.netStatus === 'even').length,
         largestDebtToMe: Math.max(...debts.owedToMe.map(d => d.amount), 0),
         largestDebtIOwe: Math.max(...debts.iOwe.map(d => d.amount), 0)
-      }
+      },
+
+      // Geçmiş ödenen işlemler
+      paidTransactions: paidTransactions.map(transaction => {
+        const fromUser = transaction.fromUser as any;
+        const toUser = transaction.toUser as any;
+        
+        return {
+          transactionId: transaction._id,
+          amount: transaction.amount,
+          isPaid: transaction.isPaid,
+          paidAt: transaction.paidAt,
+          billId: transaction.billId,
+          creditor: transaction.fromUser?.toString() === userId 
+            ? { _id: toUser._id, name: toUser.name || 'Bilinmiyor', username: toUser.username || '' }
+            : { _id: fromUser._id, name: fromUser.name || 'Bilinmiyor', username: fromUser.username || '' },
+          debtor: transaction.fromUser?.toString() === userId 
+            ? { _id: fromUser._id, name: fromUser.name || 'Ben', username: fromUser.username || '' }
+            : { _id: toUser._id, name: toUser.name || 'Bilinmiyor', username: toUser.username || '' },
+          isMyPayment: transaction.fromUser?.toString() === userId, // Ben mi ödedim
+          createdAt: transaction.createdAt
+        };
+      })
     };
 
     console.log(`📊 Debt summary completed:`, {

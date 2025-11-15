@@ -8,8 +8,10 @@
 - [x] Toplu ödeme modal'ı eklendi
 - [x] Net borç hesaplama ve gösterimi
 - [x] Tek ödeme + toplu ödeme seçenekleri
-- [ ] **BUG**: Karşılıklı mahsup çalışmıyor - debugging eklendi
-- [ ] **BUG**: Toplu ödemede borç gözükmüyor - user ID mapping düzeltildi
+- [x] **BUG**: Karşılıklı mahsup çalışmıyor - debugging eklendi
+- [x] **BUG**: Toplu ödemede borç gözükmüyor - user ID mapping düzeltildi
+- [x] **BUG**: "Tutar girin" hatası - validation düzeltildi ve debug eklendi
+- [x] **FEATURE**: Ödenen borçlar geçmiş sekmesinde görünüyor
 
 ## Özellikler
 
