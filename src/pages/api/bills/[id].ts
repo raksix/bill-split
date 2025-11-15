@@ -82,7 +82,7 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
     }
 
     // Check if user can edit (bill owner or admin)
-    if (bill.uploadedBy.toString() !== currentUser.userId && currentUser.role !== 'admin') {
+    if (bill.uploadedBy?.toString() !== currentUser.userId && currentUser.role !== 'admin') {
       return res.status(403).json({ message: 'Bu faturayı düzenleme yetkiniz yok' });
     }
 
@@ -102,7 +102,7 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
       .populate('participants', 'name username');
 
     // Transaction işlemlerini ekle (eğer participants güncelleniyorsa)
-    if (participants && urunler) {
+    if (participants) {
       const Transaction = (await import('@/models/transaction.model')).default;
       const mongoose = (await import('mongoose')).default;
       
@@ -112,12 +112,27 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
       console.log('🔄 Bill detail PUT - updating transactions:', {
         billId: bill._id,
         participantsCount: participants.length,
-        currentUserId: currentUser.userId
+        currentUserId: currentUser.userId,
+        hasUrunler: !!urunler,
+        urunlerLength: urunler?.length || 0
       });
 
-      // Paylaşılan ürünleri hesapla
-      const sharedItems = urunler.filter((item: any) => !item.isPersonal);
-      const sharedTotal = sharedItems.reduce((sum: number, item: any) => sum + item.fiyat, 0);
+      // Paylaşılan ürünleri hesapla - eğer ürün yoksa toplam tutarı kullan
+      let sharedTotal = 0;
+      if (urunler && urunler.length > 0) {
+        const sharedItems = urunler.filter((item: any) => !item.isPersonal);
+        sharedTotal = sharedItems.reduce((sum: number, item: any) => sum + item.fiyat, 0);
+      } else {
+        // Ürün yoksa toplam tutarı paylaş
+        sharedTotal = parseFloat(toplam_tutar) || bill.toplam_tutar || 0;
+      }
+
+      console.log('💰 Shared total calculation:', {
+        hasUrunler: !!urunler,
+        urunlerLength: urunler?.length || 0,
+        sharedTotal,
+        toplam_tutar
+      });
 
       if (participants.length > 0 && sharedTotal > 0) {
         // Fatura sahibi dahil tüm katılımcılar arasında paylaşılan tutarı böl
@@ -190,7 +205,7 @@ async function handleDelete(req: NextApiRequest, res: NextApiResponse) {
     }
 
     // Check if user can delete (bill owner or admin)
-    if (bill.uploadedBy.toString() !== currentUser.userId && currentUser.role !== 'admin') {
+    if (bill.uploadedBy?.toString() !== currentUser.userId && currentUser.role !== 'admin') {
       return res.status(403).json({ message: 'Bu faturayı silme yetkiniz yok' });
     }
 

@@ -119,14 +119,19 @@ const BillDetailPage: React.FC = () => {
     if (!bill) return;
 
     try {
-      // Calculate new total based on products
-      const newTotal = editForm.urunler.reduce((sum, item) => sum + item.fiyat, 0);
+      // Ürün varsa toplam hesapla, yoksa mevcut tutarı kullan
+      const hasProducts = editForm.urunler && editForm.urunler.length > 0;
+      const newTotal = hasProducts 
+        ? editForm.urunler.reduce((sum, item) => sum + item.fiyat, 0)
+        : editForm.toplam_tutar;
       
-      // Ürünlere isPersonal ekle (eğer yoksa)
-      const processedUrunler = editForm.urunler.map(item => ({
-        ...item,
-        isPersonal: item.isPersonal || false // Varsayılan olarak paylaşılan
-      }));
+      // Ürünlere isPersonal ekle (eğer varsa)
+      const processedUrunler = hasProducts 
+        ? editForm.urunler.map(item => ({
+            ...item,
+            isPersonal: item.isPersonal || false // Varsayılan olarak paylaşılan
+          }))
+        : [];
 
       const requestData = {
         ...editForm,
@@ -138,9 +143,12 @@ const BillDetailPage: React.FC = () => {
         billId: id,
         participantsCount: editForm.participants.length,
         participants: editForm.participants,
+        hasProducts,
         urunlerCount: processedUrunler.length,
-        sharedItems: processedUrunler.filter(item => !item.isPersonal).length,
-        sharedTotal: processedUrunler.filter(item => !item.isPersonal).reduce((sum, item) => sum + item.fiyat, 0),
+        sharedItems: hasProducts ? processedUrunler.filter(item => !item.isPersonal).length : 'N/A (using total)',
+        sharedTotal: hasProducts 
+          ? processedUrunler.filter(item => !item.isPersonal).reduce((sum, item) => sum + item.fiyat, 0)
+          : newTotal,
         requestData
       });
       

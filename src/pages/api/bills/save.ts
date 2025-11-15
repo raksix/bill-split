@@ -23,14 +23,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log('💾 Bill save request:', {
       billId,
-      urunlerCount: urunler?.length,
+      hasUrunler: !!urunler,
+      urunlerCount: urunler?.length || 0,
       participantsCount: participants?.length,
       participants,
       currentUserId: currentUser.userId
     });
 
-    if (!billId || !urunler || !participants) {
-      return res.status(400).json({ message: 'Eksik bilgi' });
+    if (!billId || !participants) {
+      return res.status(400).json({ message: 'Fatura ID ve katılımcı bilgisi gerekli' });
     }
 
     const bill = await Bill.findById(billId);
@@ -39,19 +40,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ message: 'Fatura bulunamadı' });
     }
 
-    if (bill.uploadedBy.toString() !== currentUser.userId) {
+    if (bill.uploadedBy?.toString() !== currentUser.userId) {
       return res.status(403).json({ message: 'Bu işlem için yetkiniz yok' });
     }
 
-    const sharedItems = urunler.filter((item: any) => !item.isPersonal);
-    const sharedTotal = sharedItems.reduce((sum: number, item: any) => sum + item.fiyat, 0);
+    // Paylaşılan tutarı hesapla - eğer ürün yoksa toplam tutarı kullan
+    let sharedTotal = 0;
+    if (urunler && urunler.length > 0) {
+      const sharedItems = urunler.filter((item: any) => !item.isPersonal);
+      sharedTotal = sharedItems.reduce((sum: number, item: any) => sum + item.fiyat, 0);
+      bill.toplam_tutar = urunler.reduce((sum: number, item: any) => sum + item.fiyat, 0);
+    } else {
+      // Ürün yoksa mevcut toplam tutarı kullan
+      sharedTotal = bill.toplam_tutar || 0;
+    }
 
     bill.urunler = urunler;
     bill.participants = participants;
-    bill.toplam_tutar = urunler.reduce((sum: number, item: any) => sum + item.fiyat, 0);
     await bill.save();
 
     await Transaction.deleteMany({ billId: bill._id });
+
+    console.log('💰 Shared total calculation in save:', {
+      hasUrunler: !!urunler && urunler.length > 0,
+      urunlerLength: urunler?.length || 0,
+      sharedTotal,
+      participantsCount: participants.length
+    });
 
     if (participants.length > 0 && sharedTotal > 0) {
       // Fatura sahibi dahil tüm katılımcılar arasında paylaşılan tutarı böl
