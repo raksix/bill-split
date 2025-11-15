@@ -55,6 +55,22 @@ const DebtsPage: React.FC = () => {
     amount: ''
   });
 
+  const [bulkPaymentModal, setBulkPaymentModal] = useState<{
+    isOpen: boolean;
+    toUserId: string | null;
+    toUserName: string | null;
+    totalAmount: string;
+    currentDebt: number;
+    theirDebt: number;
+  }>({
+    isOpen: false,
+    toUserId: null,
+    toUserName: null,
+    totalAmount: '',
+    currentDebt: 0,
+    theirDebt: 0
+  });
+
   useEffect(() => {
     if (!authLoading) {
       if (!user) {
@@ -78,8 +94,12 @@ const DebtsPage: React.FC = () => {
             _id: debt.transactionId,
             amount: debt.amount,
             billId: debt.billId, // Artık API'den populate edilmiş olarak geliyor
-            fromUser: { name: 'Ben', username: user?.username || '' },
-            toUser: debt.creditor || { name: 'Bilinmiyor', username: '' },
+            fromUser: { _id: user?.userId || '', name: 'Ben', username: user?.username || '' },
+            toUser: { 
+              _id: debt.creditor?._id || '', 
+              name: debt.creditor?.name || 'Bilinmiyor', 
+              username: debt.creditor?.username || '' 
+            },
             isPaid: false,
             createdAt: debt.createdAt
           })),
@@ -87,13 +107,24 @@ const DebtsPage: React.FC = () => {
             _id: credit.transactionId,
             amount: credit.amount,
             billId: credit.billId, // Artık API'den populate edilmiş olarak geliyor
-            fromUser: credit.debtor || { name: 'Bilinmiyor', username: '' },
-            toUser: { name: user?.name || 'Ben', username: user?.username || '' },
+            fromUser: { 
+              _id: credit.debtor?._id || '', 
+              name: credit.debtor?.name || 'Bilinmiyor', 
+              username: credit.debtor?.username || '' 
+            },
+            toUser: { _id: user?.userId || '', name: user?.name || 'Ben', username: user?.username || '' },
             isPaid: false,
             createdAt: credit.createdAt
           })),
           paidTransactions: []
         };
+        console.log('📊 Debt data transformed:', {
+          originalResponse: apiResponse,
+          transformedData,
+          unpaidDebtsCount: transformedData.unpaidDebts.length,
+          unpaidCreditsCount: transformedData.unpaidCredits.length
+        });
+        
         setDebtData(transformedData);
       } else {
         toast.error('Borç bilgileri alınamadı');
@@ -148,6 +179,104 @@ const DebtsPage: React.FC = () => {
       transaction,
       amount: transaction.amount.toString()
     });
+  };
+
+  const openBulkPaymentModal = async (toUserId: string, toUserName: string) => {
+    // Bu kişiye olan toplam borcumuzu hesapla
+    const myDebtToThisPerson = debtData?.unpaidDebts
+      .filter(debt => debt.toUser._id === toUserId)
+      .reduce((sum, debt) => sum + debt.amount, 0) || 0;
+
+    // Bu kişinin bize olan toplam borcunu hesapla
+    const theirDebtToMe = debtData?.unpaidCredits
+      .filter(credit => credit.fromUser._id === toUserId)
+      .reduce((sum, credit) => sum + credit.amount, 0) || 0;
+
+    console.log('🔍 Bulk payment modal açılıyor:', {
+      toUserId,
+      toUserName,
+      myDebtToThisPerson,
+      theirDebtToMe,
+      unpaidDebts: debtData?.unpaidDebts.length,
+      unpaidCredits: debtData?.unpaidCredits.length,
+      myDebts: debtData?.unpaidDebts.map(d => ({ to: d.toUser._id, amount: d.amount })),
+      myCredits: debtData?.unpaidCredits.map(c => ({ from: c.fromUser._id, amount: c.amount }))
+    });
+
+    setBulkPaymentModal({
+      isOpen: true,
+      toUserId,
+      toUserName,
+      totalAmount: myDebtToThisPerson.toString(),
+      currentDebt: myDebtToThisPerson,
+      theirDebt: theirDebtToMe
+    });
+  };
+
+  const handleBulkPayment = async () => {
+    if (!bulkPaymentModal.toUserId || !bulkPaymentModal.totalAmount) {
+      toast.error('Lütfen ödeme tutarını girin');
+      return;
+    }
+
+    const paymentAmount = parseFloat(bulkPaymentModal.totalAmount);
+    if (paymentAmount <= 0) {
+      toast.error('Geçersiz ödeme tutarı');
+      return;
+    }
+
+    try {
+      console.log('💸 Bulk payment request:', {
+        toUserId: bulkPaymentModal.toUserId,
+        paymentAmount,
+        currentDebt: bulkPaymentModal.currentDebt,
+        theirDebt: bulkPaymentModal.theirDebt
+      });
+
+      const response = await fetch('/api/transactions/bulk-pay', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          paymentType: 'bulk',
+          payments: [{
+            toUserId: bulkPaymentModal.toUserId,
+            amount: paymentAmount
+          }],
+          totalAmount: paymentAmount
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        let message = `₺${result.totalPaid.toFixed(2)} ödeme başarıyla işlendi`;
+        
+        if (result.nettingAmount > 0) {
+          message += ` (₺${result.nettingAmount.toFixed(2)} karşılıklı mahsup)`;
+        }
+        
+        if (result.unusedAmount > 0) {
+          message += `. ₺${result.unusedAmount.toFixed(2)} kullanılmadı`;
+        }
+
+        toast.success(message);
+        setBulkPaymentModal({ 
+          isOpen: false, 
+          toUserId: null, 
+          toUserName: null, 
+          totalAmount: '', 
+          currentDebt: 0, 
+          theirDebt: 0 
+        });
+        fetchDebts(); // Refresh data
+      } else {
+        const error = await response.json();
+        toast.error(error.message || 'Ödeme işlenemedi');
+      }
+    } catch (error) {
+      toast.error('Bağlantı hatası');
+    }
   };
 
   if (authLoading || loading) {
@@ -245,54 +374,111 @@ const DebtsPage: React.FC = () => {
                   <p className="text-gray-600">Tüm borçlarınızı ödemiş durumdasınız.</p>
                 </div>
               ) : (
-                debtData.unpaidDebts.map((transaction) => (
-                  <div
-                    key={transaction._id}
-                    className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl p-6 border border-red-100 hover:shadow-3xl transition-all duration-300"
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center">
-                          <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                          </svg>
-                        </div>
-                        <div>
-                          <h4 className="text-lg font-black text-gray-900">
-                            {transaction.toUser.name} kişisine borçlusunuz
-                          </h4>
-                          <p className="text-sm text-gray-500">@{transaction.toUser.username}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-2xl font-black text-red-600">₺{transaction.amount.toFixed(2)}</p>
-                        <Button
-                          onClick={() => openPaymentModal(transaction)}
-                          className="mt-2 bg-linear-to-r from-green-600 to-emerald-600 text-white text-sm"
-                        >
-                          Borç Öde
-                        </Button>
-                      </div>
-                    </div>
+                // Borçları kişi bazında grupla
+                (() => {
+                  const groupedDebts = debtData.unpaidDebts.reduce((groups: Record<string, Transaction[]>, transaction) => {
+                    const userId = transaction.toUser._id;
+                    if (!groups[userId]) {
+                      groups[userId] = [];
+                    }
+                    groups[userId].push(transaction);
+                    return groups;
+                  }, {});
+
+                  return Object.entries(groupedDebts).map(([userId, transactions]) => {
+                    const totalDebtToPerson = transactions.reduce((sum, t) => sum + t.amount, 0);
+                    const firstTransaction = transactions[0];
                     
-                    <div className="bg-gray-50 rounded-2xl p-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-                        <div>
-                          <p className="text-gray-500 font-bold mb-1">Fatura</p>
-                          <p className="text-gray-900 font-semibold">{transaction.billId?.market_adi || 'Bilinmiyor'}</p>
+                    // Bu kişinin bize olan borcu
+                    const theirDebtToMe = debtData.unpaidCredits
+                      .filter(credit => credit.fromUser._id === userId)
+                      .reduce((sum, credit) => sum + credit.amount, 0);
+
+                    return (
+                      <div key={userId} className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl border border-red-100 hover:shadow-3xl transition-all duration-300">
+                        {/* Kişi Header */}
+                        <div className="p-6 border-b border-gray-100">
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center">
+                                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                              </div>
+                              <div>
+                                <h4 className="text-xl font-black text-gray-900">
+                                  {firstTransaction.toUser.name}
+                                </h4>
+                                <p className="text-sm text-gray-500">@{firstTransaction.toUser.username}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-2xl font-black text-red-600">₺{totalDebtToPerson.toFixed(2)}</p>
+                              <p className="text-sm text-gray-500">{transactions.length} fatura</p>
+                            </div>
+                          </div>
+
+                          {/* Karşılıklı borç durumu */}
+                          {theirDebtToMe > 0 && (
+                            <div className="bg-blue-50 rounded-2xl p-3 mb-4">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-bold text-blue-700">Bu kişinin size borcu:</span>
+                                <span className="text-lg font-black text-blue-600">₺{theirDebtToMe.toFixed(2)}</span>
+                              </div>
+                              <div className="flex items-center justify-between mt-1">
+                                <span className="text-sm font-bold text-green-700">Net borcunuz:</span>
+                                <span className="text-lg font-black text-green-600">
+                                  ₺{Math.max(0, totalDebtToPerson - theirDebtToMe).toFixed(2)}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Toplu Ödeme Butonu */}
+                          <div className="flex gap-3">
+                            <Button
+                              onClick={() => openBulkPaymentModal(userId, firstTransaction.toUser.name)}
+                              className="flex-1 bg-linear-to-r from-green-600 to-emerald-600 text-white font-bold"
+                            >
+                              💰 Toplu Ödeme Yap
+                            </Button>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-gray-500 font-bold mb-1">Tarih</p>
-                          <p className="text-gray-900 font-semibold">{transaction.billId?.tarih || '-'}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-500 font-bold mb-1">Fatura Toplamı</p>
-                          <p className="text-gray-900 font-semibold">₺{(transaction.billId?.toplam_tutar || 0).toFixed(2)}</p>
+
+                        {/* Fatura Detayları */}
+                        <div className="p-6 space-y-4">
+                          {transactions.map((transaction) => (
+                            <div key={transaction._id} className="bg-gray-50 rounded-2xl p-4">
+                              <div className="flex items-center justify-between mb-3">
+                                <h5 className="font-bold text-gray-900">{transaction.billId?.market_adi || 'Bilinmiyor'}</h5>
+                                <div className="text-right">
+                                  <p className="text-lg font-bold text-red-600">₺{transaction.amount.toFixed(2)}</p>
+                                  <Button
+                                    onClick={() => openPaymentModal(transaction)}
+                                    size="sm"
+                                    className="bg-linear-to-r from-blue-500 to-purple-500 text-white text-xs mt-1"
+                                  >
+                                    Tek Öde
+                                  </Button>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                  <p className="text-gray-500 font-bold mb-1">Tarih</p>
+                                  <p className="text-gray-900 font-semibold">{transaction.billId?.tarih || '-'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-gray-500 font-bold mb-1">Fatura Toplamı</p>
+                                  <p className="text-gray-900 font-semibold">₺{(transaction.billId?.toplam_tutar || 0).toFixed(2)}</p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    </div>
-                  </div>
-                ))
+                    );
+                  });
+                })()
               )}
             </>
           )}
@@ -497,6 +683,105 @@ const DebtsPage: React.FC = () => {
                   className="flex-1 bg-linear-to-r from-green-600 to-emerald-600 text-white"
                 >
                   Ödemeyi Kaydet
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bulk Payment Modal */}
+        {bulkPaymentModal.isOpen && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6">
+              <div className="text-center mb-6">
+                <div className="bg-linear-to-r from-green-500 to-emerald-500 rounded-full p-4 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                  </svg>
+                </div>
+                <h3 className="text-2xl font-black text-gray-900 mb-2">Toplu Ödeme</h3>
+                <p className="text-gray-600">
+                  {bulkPaymentModal.toUserName} kişisine toplu ödeme yapın
+                </p>
+              </div>
+
+              <div className="space-y-4 mb-6">
+                {/* Borç Durumu Özeti */}
+                <div className="bg-gray-50 rounded-2xl p-4">
+                  <h4 className="font-bold text-gray-900 text-sm mb-3">Borç Durumu:</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-red-600 font-bold">Toplam borcunuz:</span>
+                      <span className="font-black text-red-600">₺{bulkPaymentModal.currentDebt.toFixed(2)}</span>
+                    </div>
+                    {bulkPaymentModal.theirDebt > 0 && (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-blue-600 font-bold">Onların size borcu:</span>
+                          <span className="font-black text-blue-600">₺{bulkPaymentModal.theirDebt.toFixed(2)}</span>
+                        </div>
+                        <div className="border-t pt-2 flex justify-between">
+                          <span className="text-green-600 font-bold">Net borcunuz:</span>
+                          <span className="font-black text-green-600">
+                            ₺{Math.max(0, bulkPaymentModal.currentDebt - bulkPaymentModal.theirDebt).toFixed(2)}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Ödeme Tutarı */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Ödeyeceğiniz Tutar</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={bulkPaymentModal.totalAmount}
+                      onChange={(e) => setBulkPaymentModal({ ...bulkPaymentModal, totalAmount: e.target.value })}
+                      step="0.01"
+                      min="0.01"
+                      className="w-full px-4 py-3 pr-12 rounded-2xl border-2 border-gray-200 focus:border-green-500 focus:outline-none transition-colors bg-white shadow-sm text-lg font-bold"
+                      placeholder="0.00"
+                    />
+                    <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 font-bold">₺</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    İstediğiniz tutarı girebilirsiniz. Sistem önce karşılıklı mahsup yapar, sonra borçlarınızı öder.
+                  </p>
+                </div>
+
+                {/* Açıklama */}
+                <div className="bg-blue-50 rounded-2xl p-4">
+                  <h4 className="font-bold text-blue-900 text-sm mb-2">Nasıl Çalışır?</h4>
+                  <ol className="text-xs text-blue-800 space-y-1">
+                    <li>1. Önce karşılıklı borçlar mahsup edilir</li>
+                    <li>2. Kalan tutar size olan borçlarınızı öder</li>
+                    <li>3. Artan tutar varsa iade edilir</li>
+                  </ol>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  variant="secondary"
+                  onClick={() => setBulkPaymentModal({ 
+                    isOpen: false, 
+                    toUserId: null, 
+                    toUserName: null, 
+                    totalAmount: '', 
+                    currentDebt: 0, 
+                    theirDebt: 0 
+                  })}
+                  className="flex-1"
+                >
+                  İptal
+                </Button>
+                <Button
+                  onClick={handleBulkPayment}
+                  className="flex-1 bg-linear-to-r from-green-600 to-emerald-600 text-white"
+                >
+                  Toplu Ödeme Yap
                 </Button>
               </div>
             </div>
