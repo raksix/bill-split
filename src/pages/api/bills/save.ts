@@ -54,28 +54,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await Transaction.deleteMany({ billId: bill._id });
 
     if (participants.length > 0 && sharedTotal > 0) {
+      // Fatura sahibi dahil tüm katılımcılar arasında paylaşılan tutarı böl
       const perPersonAmount = sharedTotal / participants.length;
+      
+      console.log('💸 Split calculation:', {
+        sharedTotal,
+        participantsCount: participants.length,
+        perPersonAmount,
+        billOwnerId: currentUser.userId
+      });
 
+      // Fatura sahibi dışındaki katılımcılar ona borçlu
       const transactions = participants
         .filter((participantId: string) => participantId !== currentUser.userId)
         .map((participantId: string) => ({
           billId: bill._id,
-          fromUser: new mongoose.Types.ObjectId(participantId),
-          toUser: new mongoose.Types.ObjectId(currentUser.userId),
+          fromUser: new mongoose.Types.ObjectId(participantId), // Borçlu
+          toUser: new mongoose.Types.ObjectId(currentUser.userId), // Alacaklı (fatura sahibi)
           amount: perPersonAmount,
           isPaid: false,
         }));
 
       if (transactions.length > 0) {
-        console.log('💰 Creating transactions:', transactions.map(t => ({
-          from: t.fromUser,
-          to: t.toUser, 
+        console.log('💰 Creating transactions:', transactions.map((t: any) => ({
+          from: t.fromUser.toString(),
+          to: t.toUser.toString(), 
           amount: t.amount
         })));
         await Transaction.insertMany(transactions);
+        console.log(`✅ Created ${transactions.length} transactions for bill ${bill._id}`);
       } else {
-        console.log('⚠️ No transactions created - participants:', participants.length, 'sharedTotal:', sharedTotal);
+        console.log('⚠️ No transactions created - current user is the only participant or no other participants');
       }
+    } else {
+      console.log('⚠️ No transactions created - no participants or no shared items', {
+        participantsCount: participants.length,
+        sharedTotal
+      });
     }
 
     return res.status(200).json({ 

@@ -89,6 +89,65 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
       .populate('uploadedBy', 'name username')
       .populate('participants', 'name username');
 
+    // Transaction işlemlerini ekle (eğer participants güncelleniyorsa)
+    if (participants && urunler) {
+      const Transaction = (await import('@/models/transaction.model')).default;
+      const mongoose = (await import('mongoose')).default;
+      
+      // Mevcut transaction'ları sil
+      await Transaction.deleteMany({ billId: bill._id });
+
+      console.log('🔄 Bill detail PUT - updating transactions:', {
+        billId: bill._id,
+        participantsCount: participants.length,
+        currentUserId: currentUser.userId
+      });
+
+      // Paylaşılan ürünleri hesapla
+      const sharedItems = urunler.filter((item: any) => !item.isPersonal);
+      const sharedTotal = sharedItems.reduce((sum: number, item: any) => sum + item.fiyat, 0);
+
+      if (participants.length > 0 && sharedTotal > 0) {
+        // Fatura sahibi dahil tüm katılımcılar arasında paylaşılan tutarı böl
+        const perPersonAmount = sharedTotal / participants.length;
+        
+        console.log('💸 Split calculation:', {
+          sharedTotal,
+          participantsCount: participants.length,
+          perPersonAmount,
+          billOwnerId: currentUser.userId
+        });
+
+        // Fatura sahibi dışındaki katılımcılar ona borçlu
+        const transactions = participants
+          .filter((participantId: string) => participantId !== currentUser.userId)
+          .map((participantId: string) => ({
+            billId: bill._id,
+            fromUser: new mongoose.Types.ObjectId(participantId), // Borçlu
+            toUser: new mongoose.Types.ObjectId(currentUser.userId), // Alacaklı (fatura sahibi)
+            amount: perPersonAmount,
+            isPaid: false,
+          }));
+
+        if (transactions.length > 0) {
+          console.log('💰 Creating transactions:', transactions.map((t: any) => ({
+            from: t.fromUser.toString(),
+            to: t.toUser.toString(), 
+            amount: t.amount
+          })));
+          await Transaction.insertMany(transactions);
+          console.log(`✅ Created ${transactions.length} transactions for bill ${bill._id}`);
+        } else {
+          console.log('⚠️ No transactions created - current user is the only participant');
+        }
+      } else {
+        console.log('⚠️ No transactions created - no participants or no shared items', {
+          participantsCount: participants.length,
+          sharedTotal
+        });
+      }
+    }
+
     return res.status(200).json({ bill: updatedBill });
   } catch (error) {
     console.error('Update bill error:', error);

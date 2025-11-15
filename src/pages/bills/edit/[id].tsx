@@ -48,7 +48,12 @@ const BillEditPage: React.FC = () => {
         const data = await response.json();
         setBill(data.bill);
         setItems(data.bill.urunler || []);
-        setSelectedUsers(data.bill.participants?.map((p: any) => p._id) || [user?.userId]);
+        const existingParticipants = data.bill.participants?.map((p: any) => p._id) || [];
+        // Fatura sahibi her zaman participant'larda olmalı
+        const finalParticipants = existingParticipants.includes(user?.userId) 
+          ? existingParticipants 
+          : [...existingParticipants, user?.userId];
+        setSelectedUsers(finalParticipants);
       }
     } catch (error) {
       toast.error('Fatura alınamadı');
@@ -80,6 +85,12 @@ const BillEditPage: React.FC = () => {
   };
 
   const toggleUser = (userId: string) => {
+    // Fatura sahibi hiçbir zaman çıkarılamaz
+    if (userId === user?.userId) {
+      toast.error('Fatura sahibi her zaman dahil olmalıdır');
+      return;
+    }
+    
     if (selectedUsers.includes(userId)) {
       setSelectedUsers(selectedUsers.filter(id => id !== userId));
     } else {
