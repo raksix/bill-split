@@ -79,7 +79,7 @@ const DebtsPage: React.FC = () => {
         fetchDebts();
       }
     }
-  }, [user, authLoading, router]);
+  }, [authLoading, user, router]);
 
   const fetchDebts = async () => {
     try {
@@ -207,39 +207,41 @@ const DebtsPage: React.FC = () => {
   };
 
   const openBulkPaymentModal = async (toUserId: string, toUserName: string) => {
+    // Basit kontrol
+    if (!toUserId || !toUserName) {
+      toast.error('Kullanıcı bilgileri eksik');
+      return;
+    }
+
+    if (!debtData) {
+      toast.error('Borç bilgileri henüz yüklenmedi');
+      return;
+    }
+
     // Bu kişiye olan toplam borcumuzu hesapla
-    const myDebtToThisPerson = debtData?.unpaidDebts
+    const myDebtToThisPerson = debtData.unpaidDebts
       .filter(debt => debt.toUser._id === toUserId)
-      .reduce((sum, debt) => sum + debt.amount, 0) || 0;
+      .reduce((sum, debt) => sum + debt.amount, 0);
 
     // Bu kişinin bize olan toplam borcunu hesapla
-    const theirDebtToMe = debtData?.unpaidCredits
+    const theirDebtToMe = debtData.unpaidCredits
       .filter(credit => credit.fromUser._id === toUserId)
-      .reduce((sum, credit) => sum + credit.amount, 0) || 0;
+      .reduce((sum, credit) => sum + credit.amount, 0);
 
     // Net borcu hesapla
     const netDebt = Math.max(0, myDebtToThisPerson - theirDebtToMe);
 
-    console.log('🔍 Bulk payment modal açılıyor:', {
-      toUserId,
-      toUserName,
-      myDebtToThisPerson,
-      theirDebtToMe,
-      netDebt,
-      unpaidDebts: debtData?.unpaidDebts.length,
-      unpaidCredits: debtData?.unpaidCredits.length,
-      myDebts: debtData?.unpaidDebts.map(d => ({ to: d.toUser._id, amount: d.amount })),
-      myCredits: debtData?.unpaidCredits.map(c => ({ from: c.fromUser._id, amount: c.amount }))
-    });
-
-    setBulkPaymentModal({
+    // State'i set et
+    const newModalState = {
       isOpen: true,
-      toUserId,
-      toUserName,
-      totalAmount: netDebt.toString(), // Net borç değeri input'ta görünsün
+      toUserId: toUserId,
+      toUserName: toUserName,
+      totalAmount: netDebt > 0 ? netDebt.toString() : '',
       currentDebt: myDebtToThisPerson,
       theirDebt: theirDebtToMe
-    });
+    };
+
+    setBulkPaymentModal(newModalState);
   };
 
   const markAsReceived = async (transactionId: string) => {
@@ -266,17 +268,29 @@ const DebtsPage: React.FC = () => {
 
   const handleBulkPayment = async () => {
     console.log('🔄 handleBulkPayment çağrıldı:', {
+      isOpen: bulkPaymentModal.isOpen,
       toUserId: bulkPaymentModal.toUserId,
+      toUserName: bulkPaymentModal.toUserName,
       totalAmount: bulkPaymentModal.totalAmount,
       totalAmountType: typeof bulkPaymentModal.totalAmount,
-      totalAmountLength: bulkPaymentModal.totalAmount?.length
+      totalAmountLength: bulkPaymentModal.totalAmount?.length,
+      currentDebt: bulkPaymentModal.currentDebt,
+      theirDebt: bulkPaymentModal.theirDebt
     });
 
+    // Modal açık mı kontrol et
+    if (!bulkPaymentModal.isOpen) {
+      toast.error('Modal açık değil');
+      return;
+    }
+
+    // Kullanıcı ID kontrolü
     if (!bulkPaymentModal.toUserId) {
       toast.error('Kullanıcı seçilmedi');
       return;
     }
 
+    // Tutar kontrolü
     if (!bulkPaymentModal.totalAmount || bulkPaymentModal.totalAmount.trim() === '') {
       toast.error('Lütfen ödeme tutarını girin');
       return;
@@ -437,16 +451,21 @@ const DebtsPage: React.FC = () => {
                   <p className="text-gray-600">Tüm borçlarınızı ödemiş durumdasınız.</p>
                 </div>
               ) : (
-                // Borçları kişi bazında grupla
+                // Borçları kişi bazında grupla - ESKİ HALİNE DÖN
                 (() => {
+                  console.log('🔍 Unpaid debts:', debtData.unpaidDebts);
+                  
                   const groupedDebts = debtData.unpaidDebts.reduce((groups: Record<string, Transaction[]>, transaction) => {
-                    const userId = transaction.toUser._id;
+                    const userId = transaction.toUser._id; // Eskisi gibi basit erişim
+                    
                     if (!groups[userId]) {
                       groups[userId] = [];
                     }
                     groups[userId].push(transaction);
                     return groups;
                   }, {});
+                  
+                  console.log('🔍 Grouped debts:', groupedDebts);
 
                   return Object.entries(groupedDebts).map(([userId, transactions]) => {
                     const totalDebtToPerson = transactions.reduce((sum, t) => sum + t.amount, 0);
@@ -540,7 +559,7 @@ const DebtsPage: React.FC = () => {
                         </div>
                       </div>
                     );
-                  });
+                  }); // filter(Boolean) kaldırıldı - hiçbir şeyi filtreleme
                 })()
               )}
             </>
