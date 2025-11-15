@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { connectToDatabase } from '@/lib/mongodb';
 import Transaction from '@/models/transaction.model';
 import User from '@/models/user.model';
+import '@/models/bill.model'; // Schema'yı register etmek için import
 import mongoose from 'mongoose';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {

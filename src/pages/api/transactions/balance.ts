@@ -2,6 +2,8 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import jwt from 'jsonwebtoken';
 import { connectToDatabase } from '@/lib/mongodb';
 import Transaction from '@/models/transaction.model';
+import '@/models/bill.model'; // Schema'yı register etmek için import
+
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
