@@ -36,12 +36,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       username: user.username,
       role: user.role,
     });
+    
+    const isProd = process.env.NODE_ENV === 'production';
+    const cookieMaxAge = process.env.JWT_COOKIE_MAX_AGE
+      ? parseInt(process.env.JWT_COOKIE_MAX_AGE, 10)
+      : (isProd ? 60 * 60 * 24 * 7 : 60 * 60 * 24 * 365);
 
     const cookie = serialize('token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProd,
       sameSite: 'strict',
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: cookieMaxAge,
       path: '/',
     });
 
