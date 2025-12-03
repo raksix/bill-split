@@ -68,7 +68,7 @@ const BillUploadPage: React.FC = () => {
     task.status === 'hazırlanıyor' || task.status === 'yükleniyor' || task.status === 'işleniyor'
   );
 
-  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB (telefon fotoğrafları için artırıldı)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -116,16 +116,30 @@ const BillUploadPage: React.FC = () => {
   const readFileAsBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
+      
       reader.onload = () => {
         const result = reader.result;
-        if (typeof result === 'string') {
+        if (typeof result === 'string' && result.length > 0) {
           resolve(result);
         } else {
-          reject(new Error('Dosya okunamadı'));
+          reject(new Error('Dosya içeriği okunamadı'));
         }
       };
-      reader.onerror = () => reject(new Error('Dosya okunamadı'));
-      reader.readAsDataURL(file);
+      
+      reader.onerror = () => {
+        console.error('FileReader error:', reader.error);
+        reject(new Error('Dosya okuma hatası: ' + (reader.error?.message || 'Bilinmeyen hata')));
+      };
+      
+      reader.onabort = () => {
+        reject(new Error('Dosya okuma iptal edildi'));
+      };
+
+      try {
+        reader.readAsDataURL(file);
+      } catch (err: any) {
+        reject(new Error('Dosya okunamadı: ' + (err?.message || 'Bilinmeyen hata')));
+      }
     });
   };
 
@@ -145,9 +159,20 @@ const BillUploadPage: React.FC = () => {
     ]));
 
     try {
-      const base64 = await readFileAsBase64(file);
-      updateTask(taskId, { progress: 25, message: 'Dosya kodlanıyor...' });
+      // Base64'e çevir
+      let base64: string;
+      try {
+        base64 = await readFileAsBase64(file);
+      } catch (readError: any) {
+        throw new Error('Dosya okunamadı: ' + (readError?.message || 'Bilinmeyen hata'));
+      }
 
+      // Base64 kontrolü
+      if (!base64 || !base64.startsWith('data:')) {
+        throw new Error('Dosya formatı geçersiz');
+      }
+
+      updateTask(taskId, { progress: 25, message: 'Dosya kodlandı, gönderiliyor...' });
       updateTask(taskId, { progress: 40, status: 'yükleniyor', message: 'Sunucuya gönderiliyor...' });
 
       const response = await fetch('/api/bills/upload', {
@@ -161,14 +186,21 @@ const BillUploadPage: React.FC = () => {
 
       let result: any = null;
       try {
-        result = await response.json();
+        const text = await response.text();
+        if (text) {
+          result = JSON.parse(text);
+        }
       } catch (parseError) {
         console.error('Upload response parse error', parseError);
       }
 
       if (!response.ok) {
-        const message = result?.message || 'Fatura yüklenemedi';
+        const message = result?.message || result?.error || `Sunucu hatası: ${response.status}`;
         throw new Error(message);
+      }
+
+      if (!result || !result.bill) {
+        throw new Error('Sunucu geçersiz yanıt döndürdü');
       }
 
       updateTask(taskId, { progress: 75, status: 'işleniyor', message: 'Yapay zeka faturayı analiz ediyor...' });
@@ -177,20 +209,20 @@ const BillUploadPage: React.FC = () => {
         progress: 100,
         status: 'tamamlandı',
         message: 'Fatura başarıyla işlendi',
-        billId: result?.bill?.id || result?.bill?._id,
-        imageUrl: result?.bill?.imageUrl,
+        billId: result.bill.id || result.bill._id,
+        imageUrl: result.bill.imageUrl,
         billData: {
-          market_adi: result?.bill?.market_adi || '',
-          tarih: result?.bill?.tarih || '',
-          urunler: result?.bill?.urunler || [],
-          toplam_tutar: result?.bill?.toplam_tutar || 0
+          market_adi: result.bill.market_adi || '',
+          tarih: result.bill.tarih || '',
+          urunler: result.bill.urunler || [],
+          toplam_tutar: result.bill.toplam_tutar || 0
         }
       });
 
       toast.success(`${file.name} faturası başarıyla işlendi`);
     } catch (err: any) {
       const message = err?.message || 'Yükleme başarısız oldu';
-      console.error('Upload error', err);
+      console.error('Upload error:', err);
       updateTask(taskId, {
         progress: 100,
         status: 'hata',
@@ -206,13 +238,21 @@ const BillUploadPage: React.FC = () => {
     if (!files || files.length === 0) return;
 
     Array.from(files).forEach(file => {
-      if (!file.type.startsWith('image/')) {
-        toast.error(`${file.name} bir görsel dosyası değil`);
+      // Dosya adından uzantıyı al
+      const fileName = file.name.toLowerCase();
+      const validExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.heif'];
+      const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
+      
+      // file.type boş olabilir (özellikle telefonlarda), o yüzden uzantıya da bak
+      const isImage = file.type.startsWith('image/') || hasValidExtension;
+      
+      if (!isImage) {
+        toast.error(`${file.name} desteklenmeyen bir format`);
         return;
       }
 
       if (file.size > MAX_FILE_SIZE) {
-        toast.error(`${file.name} dosyası 5MB sınırını aşıyor`);
+        toast.error(`${file.name} dosyası 10MB sınırını aşıyor`);
         return;
       }
 
@@ -483,7 +523,7 @@ const BillUploadPage: React.FC = () => {
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="image/*"
+                      accept="image/*,.heic,.heif"
                       multiple
                       onChange={handleFileInputChange}
                       className="hidden"
@@ -497,7 +537,7 @@ const BillUploadPage: React.FC = () => {
                       Dosya Seç
                     </button>
                     <p className="mt-3 text-xs text-gray-500">
-                      PNG, JPG, JPEG | Maksimum 5MB | Çoklu seçim desteklenir
+                      PNG, JPG, JPEG, HEIC, WebP | Maksimum 10MB | Çoklu seçim desteklenir
                     </p>
                     <p className="mt-1 text-xs text-gray-500">
                       Yükleme sırasında bu pencere açık kalmalı.

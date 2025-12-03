@@ -18,7 +18,7 @@ export interface OCRResult {
   toplam_tutar: number;
 }
 
-export async function processReceiptImage(imageBase64: string): Promise<OCRResult> {
+export async function processReceiptImage(imageBase64: string, mimeType: string = 'image/jpeg'): Promise<OCRResult> {
   try {
     if (!API_KEY) {
       throw new Error('Gemini API Key tanımlanmamış');
@@ -45,11 +45,15 @@ Sadece JSON formatında yanıt ver, başka açıklama ekleme.
 Tüm fiyatları sayı olarak ver (string değil).
 `;
 
+    // Desteklenen MIME type'ları kontrol et
+    const supportedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    const finalMimeType = supportedMimeTypes.includes(mimeType) ? mimeType : 'image/jpeg';
+
     const imageParts = [
       {
         inlineData: {
           data: imageBase64,
-          mimeType: 'image/jpeg',
+          mimeType: finalMimeType,
         },
       },
     ];

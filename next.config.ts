@@ -6,6 +6,12 @@ const nextConfig: NextConfig = {
    typescript: {
       ignoreBuildErrors: true,
    },
+   // API body size limit for image uploads
+   api: {
+      bodyParser: {
+         sizeLimit: '50mb',
+      },
+   },
 };
 
 export default nextConfig;

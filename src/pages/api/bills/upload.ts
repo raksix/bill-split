@@ -5,6 +5,15 @@ import Bill from '@/models/bill.model';
 import { processReceiptImage } from '@/lib/gemini';
 import { uploadToRakCDN } from '@/lib/rakcdn';
 
+// Next.js body parser config - 50MB limit (base64 encoded images are large)
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '50mb',
+    },
+  },
+};
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
@@ -30,12 +39,41 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log('Fatura yükleme başlatıldı, kullanıcı:', userId);
 
+    // MIME type'ı tespit et
+    const mimeMatch = imageBase64.match(/^data:(image\/[a-zA-Z+]+);base64,/);
+    let mimeType = 'image/jpeg'; // varsayılan
+    
+    if (mimeMatch && mimeMatch[1]) {
+      mimeType = mimeMatch[1];
+      // HEIC/HEIF formatları için jpeg olarak işle (Gemini desteklemiyor)
+      if (mimeType === 'image/heic' || mimeType === 'image/heif') {
+        mimeType = 'image/jpeg';
+      }
+    }
+
+    console.log('Tespit edilen MIME type:', mimeType);
+
     // Base64'ü buffer'a çevir
-    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+    const base64Data = imageBase64.replace(/^data:image\/[a-zA-Z+]+;base64,/, '');
     const imageBuffer = Buffer.from(base64Data, 'base64');
+    
+    // Dosya boyutu kontrolü (10MB limit)
+    const MAX_SIZE = 10 * 1024 * 1024;
+    if (imageBuffer.length > MAX_SIZE) {
+      return res.status(400).json({ message: 'Dosya boyutu çok büyük (maksimum 10MB)' });
+    }
+
+    // Dosya uzantısını mimeType'a göre belirle
+    const extMap: Record<string, string> = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/gif': 'gif',
+      'image/webp': 'webp'
+    };
+    const extension = extMap[mimeType] || 'jpg';
 
     // ADIM 1: CDN'e yükleme
-    const uploadResult = await uploadToRakCDN(imageBuffer, `bill_${userId}_${Date.now()}.png`);
+    const uploadResult = await uploadToRakCDN(imageBuffer, `bill_${userId}_${Date.now()}.${extension}`, mimeType);
     if (!uploadResult.success || !uploadResult.url) {
       return res.status(500).json({
         message: 'Resim yüklenemedi',
@@ -43,8 +81,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // ADIM 2: OCR işlemi
-    const ocrResult = await processReceiptImage(base64Data);
+    // ADIM 2: OCR işlemi (mimeType bilgisiyle)
+    const ocrResult = await processReceiptImage(base64Data, mimeType);
 
     // Tarih formatını normalize et
     const normalizedDate = (() => {

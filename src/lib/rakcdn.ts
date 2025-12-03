@@ -16,19 +16,25 @@ interface UploadResult {
  * RakCDN'e resim yükleme fonksiyonu
  * @param buffer - Yüklenecek resim buffer'ı
  * @param filename - Dosya adı (opsiyonel)
+ * @param contentType - MIME type (opsiyonel)
  * @returns Promise<UploadResult>
  */
-export async function uploadToRakCDN(buffer: Buffer, filename?: string): Promise<UploadResult> {
+export async function uploadToRakCDN(buffer: Buffer, filename?: string, contentType?: string): Promise<UploadResult> {
   try {
+    // Content type belirleme
+    const mimeType = contentType || 'image/jpeg';
+    const finalFilename = filename || `bill_${Date.now()}.jpg`;
+
     console.log('RakCDN\'e yükleme başlatılıyor:', { 
       size: buffer.length, 
-      filename: filename || 'unknown' 
+      filename: finalFilename,
+      contentType: mimeType
     });
 
     const formData = new FormData();
     formData.append('file', buffer, {
-      filename: filename || `bill_${Date.now()}.png`,
-      contentType: 'image/png'
+      filename: finalFilename,
+      contentType: mimeType
     });
 
     const response = await axios({
